@@ -25,7 +25,13 @@ if (!config.telegramToken) {
     { command: 'help', description: 'How this works' },
   ]);
   console.log(`[bot] running as @${me.username}  ->  https://t.me/${me.username}`);
-  bot.start({ drop_pending_updates: true });
+  // Keep the dashboard alive if polling fails (e.g. 409: another copy of the bot is polling the same token).
+  const poll = () => bot.start({ drop_pending_updates: true }).catch((err) => {
+    const conflict = err?.error_code === 409;
+    console.error(`[bot] polling stopped: ${err?.description || err?.message}. ${conflict ? 'Another copy of this bot is running somewhere (only one may poll). ' : ''}Retrying in 15s`);
+    setTimeout(poll, 15_000);
+  });
+  poll();
   const stop = () => { bot.stop(); db.saveNow(); process.exit(0); };
   process.once('SIGINT', stop);
   process.once('SIGTERM', stop);
