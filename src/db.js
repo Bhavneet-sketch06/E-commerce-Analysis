@@ -114,7 +114,7 @@ export const getCoupon = (code) => data.coupons[code];
 export const coupons = () => Object.values(data.coupons);
 
 export function addEvent(ev) {
-  const rec = { at: new Date().toISOString(), ...ev };
+  const rec = { at: new Date().toISOString(), name: data.customers[ev.customerId]?.name, ...ev };
   data.events.push(rec);
   if (data.events.length > 5000) data.events.splice(0, data.events.length - 5000);
   save();

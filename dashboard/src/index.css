@@ -1,0 +1,106 @@
+@import "tailwindcss";
+
+@custom-variant dark (&:where([data-theme=dark], [data-theme=dark] *));
+
+/* ---------- Mission-control tokens (light) ---------- */
+:root {
+  --bg: #eef2f8;
+  --panel: #ffffff;
+  --panel-2: #f5f7fb;
+  --line: #dfe5ef;
+  --line-strong: #c9d2e1;
+  --ink: #0b1324;
+  --muted: #55627c;
+  --faint: #8a96ad;
+  --grid: rgba(15, 23, 42, 0.05);
+  --ok: #0d9488;
+  --warn: #c2770a;
+  --bad: #e11d48;
+  --info: #2563eb;
+  --ai: #7c3aed;
+  --idle: #64748b;
+  --glow-ok: 0 0 0 1px rgba(13, 148, 136, 0.18), 0 8px 30px -12px rgba(13, 148, 136, 0.35);
+  --glow-bad: 0 0 0 1px rgba(225, 29, 72, 0.18), 0 8px 30px -12px rgba(225, 29, 72, 0.35);
+  --shadow: 0 1px 2px rgba(15, 23, 42, 0.06), 0 8px 24px -16px rgba(15, 23, 42, 0.25);
+  color-scheme: light;
+}
+
+/* ---------- Mission-control tokens (dark, default) ---------- */
+[data-theme="dark"] {
+  --bg: #050912;
+  --panel: #0b1221;
+  --panel-2: #0f182b;
+  --line: #1a2540;
+  --line-strong: #263456;
+  --ink: #e7eefb;
+  --muted: #8f9cb8;
+  --faint: #56627e;
+  --grid: rgba(120, 150, 200, 0.06);
+  --ok: #2dd4bf;
+  --warn: #fbbf24;
+  --bad: #fb7185;
+  --info: #60a5fa;
+  --ai: #a78bfa;
+  --idle: #7c8aa5;
+  --glow-ok: 0 0 0 1px rgba(45, 212, 191, 0.22), 0 0 32px -6px rgba(45, 212, 191, 0.28);
+  --glow-bad: 0 0 0 1px rgba(251, 113, 133, 0.22), 0 0 32px -6px rgba(251, 113, 133, 0.28);
+  --shadow: 0 1px 0 rgba(255, 255, 255, 0.03) inset, 0 12px 32px -18px rgba(0, 0, 0, 0.8);
+  color-scheme: dark;
+}
+
+@theme inline {
+  --color-bg: var(--bg);
+  --color-panel: var(--panel);
+  --color-panel2: var(--panel-2);
+  --color-line: var(--line);
+  --color-line-strong: var(--line-strong);
+  --color-ink: var(--ink);
+  --color-muted: var(--muted);
+  --color-faint: var(--faint);
+  --color-ok: var(--ok);
+  --color-warn: var(--warn);
+  --color-bad: var(--bad);
+  --color-info: var(--info);
+  --color-ai: var(--ai);
+  --color-idle: var(--idle);
+  --font-sans: "Space Grotesk", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
+}
+
+html, body { background: var(--bg); color: var(--ink); }
+body {
+  font-family: var(--font-sans);
+  min-height: 100vh;
+  background-image:
+    radial-gradient(1200px 600px at 85% -10%, color-mix(in srgb, var(--ok) 10%, transparent), transparent 60%),
+    radial-gradient(900px 500px at -10% 110%, color-mix(in srgb, var(--ai) 9%, transparent), transparent 60%),
+    linear-gradient(var(--grid) 1px, transparent 1px),
+    linear-gradient(90deg, var(--grid) 1px, transparent 1px);
+  background-size: auto, auto, 32px 32px, 32px 32px;
+  background-attachment: fixed;
+  -webkit-font-smoothing: antialiased;
+}
+
+.panel {
+  background: color-mix(in srgb, var(--panel) 92%, transparent);
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  box-shadow: var(--shadow);
+  backdrop-filter: blur(6px);
+}
+.glow-ok { box-shadow: var(--glow-ok); }
+.glow-bad { box-shadow: var(--glow-bad); }
+.num { font-family: var(--font-mono); font-variant-numeric: tabular-nums; letter-spacing: -0.02em; }
+.label { font-size: 11px; text-transform: uppercase; letter-spacing: 0.12em; color: var(--muted); font-weight: 600; }
+
+@keyframes pulse-ring { 0% { transform: scale(0.8); opacity: 0.8; } 100% { transform: scale(2.4); opacity: 0; } }
+.live-dot { position: relative; width: 8px; height: 8px; border-radius: 999px; background: var(--ok); }
+.live-dot::after { content: ""; position: absolute; inset: 0; border-radius: 999px; background: var(--ok); animation: pulse-ring 1.6s ease-out infinite; }
+
+@keyframes scan { from { transform: translateX(-100%); } to { transform: translateX(100%); } }
+.scanline { position: relative; overflow: hidden; }
+.scanline::after { content: ""; position: absolute; inset: 0; background: linear-gradient(90deg, transparent, color-mix(in srgb, var(--ok) 12%, transparent), transparent); animation: scan 1.8s linear infinite; }
+
+input[type="range"] { accent-color: var(--ok); }
+::selection { background: color-mix(in srgb, var(--ok) 35%, transparent); }
+* { scrollbar-width: thin; scrollbar-color: var(--line-strong) transparent; }

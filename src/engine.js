@@ -6,7 +6,9 @@ import { computeFeatures, signals } from './features.js';
 import { scoreUplift } from './uplift.js';
 import { eligibility, expectedBasket } from './rules/eligibility.js';
 import { validate } from './rules/validator.js';
-import { fallbackProposal } from './policy.js';
+import { fallbackProposal, offerGenerosity } from './policy.js';
+
+export { offerGenerosity };
 import { proposeOffer, reviseOffer, buildBrief, aiAvailable } from './agent/agent.js';
 import { hashString, rng } from './data/generate.js';
 import { CATEGORIES, POINT_VALUE_INR } from './data/catalog.js';
@@ -109,18 +111,6 @@ export async function decide(customerId, { trigger = 'campaign', now = new Date(
 
 // Synthetic customers "respond" according to their uplift scores (seeded per decision, so reproducible).
 // Treated: P(buy) = pBase + uplift x generosity. Control: P(buy) = pBase.
-export function offerGenerosity(offer) {
-  if (!offer) return 0;
-  switch (offer.type) {
-    case 'percent_off': case 'cart_recovery': return Math.min(1.4, 0.4 + (offer.discountPct || 0) / 15);
-    case 'flat_off': return Math.min(1.3, 0.5 + (offer.amountInr || 0) / 250);
-    case 'free_shipping': return 0.6;
-    case 'bonus_points': return 0.5 + Math.min(0.4, (offer.points || 0) / 1000);
-    case 'points_reminder': return 0.5;
-    default: return 0.3;
-  }
-}
-
 export function simulateOutcome(rec, f, u) {
   const r = rng(`outcome:${rec.customerId}:${rec.at}`);
   const treated = rec.status === 'sent';

@@ -12,6 +12,9 @@ import { QUADRANTS } from '../uplift.js';
 import { CATEGORIES } from '../data/catalog.js';
 import { OFFER_TYPES } from '../rules/defaultRules.js';
 import { aiAvailable } from '../agent/agent.js';
+import { interpretRule } from '../agent/ruleWriter.js';
+import { diffRules, applyChanges } from '../rules/diff.js';
+import { simulate } from '../simulate.js';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const DIST = path.resolve(here, '../../dashboard/dist');
@@ -31,6 +34,13 @@ function customerRow(c, rules) {
     segment: f.segment, quadrant: u.quadrant, pBase: u.pBase, pOffer: u.pOffer, uplift: u.uplift, churnRisk: f.churnRisk,
     ltv: f.lifetimeValue, orders: f.lifetimeOrders, recencyDays: f.recencyDays, topCategory: f.topCategory, cartValue: f.cartValue, optedOut: c.optedOut,
   };
+}
+
+let baseline = { key: null, value: null };
+function baselineForecast() {
+  const key = `${db.ruleVersions().at(-1).version}:${db.customers().length}:${new Date().toISOString().slice(0, 13)}`;
+  if (baseline.key !== key) baseline = { key, value: simulate(db.getRules(), db.customers()) };
+  return baseline.value;
 }
 
 export function createApp() {
@@ -86,6 +96,43 @@ export function createApp() {
     if (check.errors.length) return res.status(400).json({ error: 'Rules have problems', check });
     const v = db.saveRules(rules, { by: by || 'Marketing team', note: note || 'Edited in dashboard' });
     res.json({ version: v.version, check });
+  });
+  app.post('/api/rules/check', (req, res) => {
+    const rules = req.body?.rules;
+    res.json({ check: checkRules(rules), diff: rules ? diffRules(db.getRules(), rules) : [] });
+  });
+  app.get('/api/rules/versions/:n/diff', (req, res) => {
+    const n = Number(req.params.n);
+    const v = db.ruleVersion(n);
+    const prev = db.ruleVersion(n - 1);
+    if (!v) return res.status(404).json({ error: 'Not found' });
+    res.json({ diff: prev ? diffRules(prev.rules, v.rules) : [], vsCurrent: diffRules(v.rules, db.getRules()) });
+  });
+  // Plain English -> proposed rules (not saved). The dashboard shows the diff + forecast, then PUTs on Apply.
+  app.post('/api/rules/nl', async (req, res) => {
+    const text = String(req.body?.text || '').trim();
+    if (!text) return res.status(400).json({ error: 'Type an instruction first' });
+    if (!aiAvailable()) return res.status(503).json({ error: 'Plain-English rules need ANTHROPIC_API_KEY. You can still edit the rules directly below.' });
+    try {
+      const current = db.getRules();
+      const out = await interpretRule(text, current, new Date().toISOString().slice(0, 10));
+      const { rules, rejected } = applyChanges(current, out.changes);
+      const customers = db.customers();
+      res.json({
+        summary: out.summary, question: out.question, rejected: [...rejected, ...out.unparsed.map((p) => ({ path: p, reason: 'could not read value' }))],
+        rules, diff: diffRules(current, rules), check: checkRules(rules),
+        impact: { before: baselineForecast(), after: simulate(rules, customers) },
+      });
+    } catch (err) {
+      res.status(502).json({ error: `Could not interpret that: ${err.message}` });
+    }
+  });
+  app.post('/api/simulate', (req, res) => {
+    const rules = req.body?.rules || db.getRules();
+    const check = checkRules(rules);
+    if (check.errors.length) return res.status(400).json({ error: check.errors[0].message, check });
+    const customers = db.customers();
+    res.json({ forecast: simulate(rules, customers), baseline: baselineForecast(), diff: diffRules(db.getRules(), rules), check });
   });
   app.post('/api/rules/rollback', (req, res) => {
     const v = db.ruleVersion(Number(req.body?.version));

@@ -7,6 +7,19 @@ import { estimateCost } from './rules/eligibility.js';
 const fmt = (n) => `₹${Math.round(n).toLocaleString('en-IN')}`;
 const roundTo5 = (x) => Math.round(x / 5) * 5;
 
+// How strongly an offer moves behaviour, relative to the customer's typical uplift.
+export function offerGenerosity(offer) {
+  if (!offer) return 0;
+  switch (offer.type) {
+    case 'percent_off': case 'cart_recovery': return Math.min(1.4, 0.4 + (offer.discountPct || 0) / 15);
+    case 'flat_off': return Math.min(1.3, 0.5 + (offer.amountInr || 0) / 250);
+    case 'free_shipping': return 0.6;
+    case 'bonus_points': return 0.5 + Math.min(0.4, (offer.points || 0) / 1000);
+    case 'points_reminder': return 0.5;
+    default: return 0.3;
+  }
+}
+
 // Pick the cheapest offer likely to work, given the eligible options.
 export function chooseOffer(f, u, options) {
   const by = (t) => options.filter((o) => o.type === t);
@@ -20,7 +33,8 @@ export function chooseOffer(f, u, options) {
   const reminder = by('points_reminder')[0];
   if (reminder && u.quadrant !== 'persuadable') return { action: 'send', type: 'points_reminder' };
 
-  if (u.quadrant === 'persuadable') {
+  // Discounts for persuadables, or for any group the marketing rules explicitly allow them for.
+  if (u.quadrant === 'persuadable' || by('percent_off').length) {
     const pcts = by('percent_off');
     const pick = pcts.find((o) => o.category === f.topCategory) || pcts.find((o) => o.category === f.preferredCategory) || pcts[0];
     if (pick) {

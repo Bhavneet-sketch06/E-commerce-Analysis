@@ -14,7 +14,9 @@
     "realism": "node scripts/realism.js",
     "dryrun": "node scripts/dryrun.js",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "dashboard": "npm --prefix dashboard run dev",
+    "build": "npm --prefix dashboard install && npm --prefix dashboard run build"
   },
   "devDependencies": {
     "vitest": "^3.2.7"
