@@ -27,7 +27,7 @@ export function budgetLeft(rules, state, now) {
   const overall = budgetInr - (state.committedInr || 0);
   if (!dailyPacing) return { overall, today: overall };
   const days = Math.max(1, Math.round((Date.parse(endDate) - Date.parse(startDate)) / DAY) + 1);
-  const dailyCap = (budgetInr / days) * 1.5;
+  const dailyCap = (budgetInr / days) * 3;
   return { overall, today: Math.min(overall, dailyCap - (state.committedTodayInr || 0)), dailyCap };
 }
 
@@ -119,7 +119,7 @@ export function eligibility(customer, f, u, rules, state, now = new Date()) {
       } else if (type === 'bonus_points') {
         options.push({ type, minPoints: o.minPoints, maxPoints: o.maxPoints });
       } else if (type === 'points_reminder') {
-        if (f.pointsExpiringSoon > 0) options.push({ type, points: f.pointsExpiringSoon });
+        if (f.pointsExpiringSoon >= (o.minPoints || 1)) options.push({ type, points: f.pointsExpiringSoon });
       } else if (type === 'nudge') {
         options.push({ type, categories: [...new Set([f.topCategory, f.preferredCategory])].filter((c) => cats.includes(c)) });
       }

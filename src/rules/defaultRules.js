@@ -16,8 +16,8 @@ export const DEFAULT_RULES = {
     name: 'Festive Season 2026',
     startDate: '2026-10-20',
     endDate: '2026-11-15',
-    budgetInr: 50000,
-    dailyPacing: true,          // spread the budget evenly (up to 1.5x the daily average on any day)
+    budgetInr: 100000,
+    dailyPacing: true,          // spread the budget: no day may spend more than 3x the daily average
     controlGroupPct: 10,        // share of customers who never get offers, to measure real uplift
     offerValidityHours: 72,
   },
@@ -44,7 +44,7 @@ export const DEFAULT_RULES = {
     free_shipping: { enabled: true, minOrderInr: 199 },
     cart_recovery: { enabled: true, maxPct: 15 },
     bonus_points: { enabled: true, minPoints: 50, maxPoints: 400 },
-    points_reminder: { enabled: true },
+    points_reminder: { enabled: true, minPoints: 100 },
     nudge: { enabled: true },
   },
   categories: {
