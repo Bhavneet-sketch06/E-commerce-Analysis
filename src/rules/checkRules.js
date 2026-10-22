@@ -47,7 +47,12 @@ export function checkRules(r) {
 
   for (const w of r.windows || []) {
     if (!w.start || !w.end || w.start > w.end) err('windows', `Window "${w.name}" ends before it starts`);
-    for (const cat of w.categories || []) if (!CATEGORIES[cat]) err('windows', `Window "${w.name}" uses unknown category ${cat}`);
+    for (const cat of w.categories || []) {
+      if (!CATEGORIES[cat]) { err('windows', `Window "${w.name}" uses unknown category ${cat}`); continue; }
+      const marginCap = CATEGORIES[cat].marginPct - floor;
+      const wanted = (r.categories?.[cat]?.maxDiscountPct ?? 0) + (w.extraDiscountPct || 0);
+      if (wanted > marginCap) warn('windows', `"${w.name}" would allow ${wanted}% on ${cat}, but its ${CATEGORIES[cat].marginPct}% margin and the ${floor}% margin floor cap it at ${Math.max(0, marginCap)}%. Lower the margin floor if you really want deeper ${cat} discounts`);
+    }
   }
   if (r.message && !(r.message.maxChars >= 80)) err('message.maxChars', 'Messages need at least 80 characters');
   return { errors, warnings };
