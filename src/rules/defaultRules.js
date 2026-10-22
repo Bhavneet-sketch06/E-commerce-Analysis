@@ -52,7 +52,7 @@ export const DEFAULT_RULES = {
     Electronics: { enabled: true, maxDiscountPct: 7 },
     'Home & Kitchen': { enabled: true, maxDiscountPct: 20 },
     Beauty: { enabled: true, maxDiscountPct: 30 },
-    Grocery: { enabled: true, maxDiscountPct: 8 },
+    Grocery: { enabled: true, maxDiscountPct: 5 },
     Sports: { enabled: true, maxDiscountPct: 20 },
     Books: { enabled: true, maxDiscountPct: 15 },
     Toys: { enabled: true, maxDiscountPct: 25 },
