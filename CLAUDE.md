@@ -16,7 +16,7 @@ Individual project, Punjab Jobs AI Bootcamp × J-PAL South Asia. Deadline Tue 27
 ## Commands
 ```bash
 npm install
-npm test           # vitest: validator, eligibility, data realism
+npm test           # vitest: validator, eligibility, triggers, autopilot, data realism
 npm run realism    # prints data realism stats (revenue concentration, seasonality, quadrants)
 npm run dryrun     # runs the engine over synthetic customers, prints decisions + violations
 npm run dev        # bot + API with --watch
@@ -32,6 +32,14 @@ npm run dev        # bot + API with --watch
    nothing beyond the offer (%, ₹, points, free delivery, invented codes; Devanagari/Gurmukhi digits normalised).
 5. `agent/agent.js` Claude proposes one offer (tool use), validator checks, one retry with violations, then deterministic fallback.
 6. `engine.js` orchestrates, applies the control group, logs every decision, issues coupon codes.
+7. `triggers.js` (PURE) decides WHEN: cart_abandoned, browse_abandoned (repeated views, no purchase), win_back
+   (overdue vs own rhythm), points_expiring; deduped via `customer.triggerState`. `scheduler.js` = autopilot: scans
+   every `rules.triggers.scanEveryMinutes` (env `TRIGGER_SCAN_SECONDS` overrides, `AUTOPILOT=off` disables), keeps
+   triggers pending in quiet hours, and marks expired unanswered offers as ignored (feeds offer fatigue).
+
+Browsing: synthetic customers carry a 30-day `browseLog`; the bot appends real views. `features.browseIntent` =
+category viewed 3+ times in 7 days, not bought, not in cart. `contact.noOffersAfterPurchaseHours` blocks offers
+right after a purchase. Older saved rules get new settings via `db.withDefaults()`.
 
 ## Conventions
 - eligibility/validator/features/uplift stay pure (no I/O, `now` passed in) and fully tested. Any new rule needs a test.
