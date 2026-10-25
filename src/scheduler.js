@@ -5,7 +5,7 @@
 import * as db from './db.js';
 import { decide, analyse } from './engine.js';
 import { detectTriggers, isUnansweredExpiry, TRIGGERS } from './triggers.js';
-import { contactBlockers } from './rules/eligibility.js';
+import { contactBlockers, istHour } from './rules/eligibility.js';
 
 const status = { running: false, scanning: false, lastScanAt: null, nextScanAt: null, lastResult: null, totals: {} };
 let timer = null;
@@ -64,6 +64,9 @@ export async function scanNow({ now = new Date() } = {}) {
   try {
     result.expiredIgnored = expireOffers(now);
     const rules = db.getRules();
+    const h = istHour(now);
+    const { quietHoursStart: qs, quietHoursEnd: qe } = rules.contact;
+    result.quietHours = qs > qe ? h >= qs || h < qe : h >= qs && h < qe;
     if (rules.triggers?.enabled) {
       // Live testers: every due trigger, AI on. Synthetic customers: a few per scan, rule engine (cheap, keeps the feed alive).
       const testers = db.customers().filter((c) => c.telegramId != null && !c.optedOut);

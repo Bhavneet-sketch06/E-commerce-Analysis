@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Send, ShoppingCart, Star, MapPin, Languages, Loader2 } from 'lucide-react';
+import { Send, ShoppingCart, Star, MapPin, Languages, Loader2, Eye } from 'lucide-react';
 import { api, useApi } from '../api.jsx';
 import { inr, pct, QUAD } from '../format.js';
 import { Button, Drawer, Pill } from './ui.jsx';
@@ -81,6 +81,27 @@ export default function CustomerDrawer({ id, onClose }) {
                 <p className="num mt-0.5 truncate font-semibold text-ink">{v}</p>
               </div>
             ))}
+          </div>
+
+          <div className="panel p-4">
+            <p className="label mb-2 flex items-center gap-1.5"><Eye size={12} />Browsing (last 30 days)</p>
+            {!f.views30d ? <p className="text-sm text-faint">No recent visits</p> : (
+              <>
+                <p className="text-xs text-muted"><b className="num text-ink">{f.views30d}</b> views · <b className="num text-ink">{f.views7d}</b> this week{f.topBrowsedCategory && <> · mostly <b className="text-ink">{f.topBrowsedCategory}</b></>}</p>
+                {f.browseIntent && (
+                  <p className="mt-2 rounded-lg border border-warn/40 bg-warn/10 px-3 py-1.5 text-xs text-ink">👀 <b>Considering:</b> {f.browseIntent.product} ({f.browseIntent.category}), viewed {f.browseIntent.views7d}× this week, not bought yet</p>
+                )}
+                <div className="mt-3 space-y-1.5">
+                  {Object.entries(f.viewsByCategory30d).sort((x, y) => y[1] - x[1]).slice(0, 5).map(([cat, n]) => (
+                    <div key={cat} className="flex items-center gap-2 text-xs">
+                      <span className="w-28 truncate text-muted">{cat}</span>
+                      <div className="h-1.5 flex-1 rounded-full bg-panel2"><div className="h-full rounded-full bg-ai" style={{ width: `${(n / f.views30d) * 100}%` }} /></div>
+                      <span className="num w-6 text-right text-faint">{n}</span>
+                    </div>
+                  ))}
+                </div>
+              </>
+            )}
           </div>
 
           <div className="grid gap-3 sm:grid-cols-2">

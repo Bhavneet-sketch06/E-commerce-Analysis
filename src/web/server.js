@@ -81,6 +81,7 @@ export function createApp() {
     let rows = db.decisions();
     if (req.query.status) rows = rows.filter((d) => d.status === req.query.status);
     if (req.query.telegram) rows = rows.filter((d) => d.telegramId != null);
+    if (req.query.trigger) rows = rows.filter((d) => d.trigger === req.query.trigger);
     if (req.query.guardrail) rows = rows.filter((d) => d.attempts?.some((a) => a.source !== 'fallback' && (!a.ok || a.error)));
     const limit = Math.min(500, Number(req.query.limit) || 100);
     res.json(rows.slice(-limit).reverse());

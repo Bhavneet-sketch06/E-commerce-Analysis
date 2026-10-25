@@ -1,5 +1,5 @@
 import { ShieldAlert, ShieldCheck, Sparkles, Cpu, ArrowRight } from 'lucide-react';
-import { ago, offerText, QUAD, SOURCE, STATUS, VIOLATION } from '../format.js';
+import { ago, offerText, QUAD, SOURCE, STATUS, TRIGGER } from '../format.js';
 import { Pill, TelegramBubble } from './ui.jsx';
 
 function proposalText(p) {
@@ -50,11 +50,14 @@ export default function DecisionCard({ d, onSelect }) {
         <Pill className={st.tw}>{st.label}</Pill>
         {d.source && <Pill className={SOURCE[d.source].tw}>{d.source !== 'fallback' && <Sparkles size={10} />}{SOURCE[d.source].label}</Pill>}
         <span className="ml-auto flex items-center gap-2 text-[11px] text-faint">
-          <span className={q.tw}>{q.label}</span>· {d.segment} · {d.trigger?.replace(/_/g, ' ')} · {ago(d.at)}
+          <span className={q.tw}>{q.label}</span>· {d.segment} · {TRIGGER[d.trigger] ? `${TRIGGER[d.trigger].emoji} ${TRIGGER[d.trigger].label}` : d.trigger} · {ago(d.at)}
         </span>
       </header>
       <div className="grid gap-4 p-4 md:grid-cols-[1fr_1.1fr]">
         <div className="space-y-3">
+          {d.triggerReason && (
+            <p className="rounded-lg border border-warn/30 bg-warn/5 px-3 py-1.5 text-xs text-ink"><b className="text-warn">⚡ Why now:</b> {d.triggerReason}</p>
+          )}
           {d.offer && (
             <p className="flex items-center gap-2 text-sm">
               <span className="label !text-[10px]">Offer</span>

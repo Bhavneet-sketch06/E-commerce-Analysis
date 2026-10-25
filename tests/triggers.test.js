@@ -7,6 +7,7 @@ import { contactBlockers, eligibility } from '../src/rules/eligibility.js';
 import { chooseOffer } from '../src/policy.js';
 import { checkRules } from '../src/rules/checkRules.js';
 import { withDefaults } from '../src/db.js';
+import { diffRules } from '../src/rules/diff.js';
 
 const NOW = new Date('2026-10-22T06:30:00Z'); // 12:00 IST
 const ago = (ms) => new Date(NOW.getTime() - ms).toISOString();
@@ -119,6 +120,15 @@ describe('rules', () => {
     expect(r.triggers.cartAbandoned.afterMinutes).toBe(60);
     expect(r.contact.noOffersAfterPurchaseHours).toBe(72);
     expect(r.contact.maxOffersPerWeek).toBe(3);
+  });
+  it('describes trigger changes in plain sentences', () => {
+    const next = structuredClone(DEFAULT_RULES);
+    next.triggers.cartAbandoned.afterMinutes = 10;
+    next.triggers.browseAbandoned.enabled = false;
+    next.contact.noOffersAfterPurchaseHours = 48;
+    expect(diffRules(DEFAULT_RULES, next).map((d) => d.text)).toEqual(expect.arrayContaining([
+      'Cart reminder after: 60 min → 10 min', "Browsed-but-didn't-buy trigger: on → off", 'No offers after a purchase for: 72 hours → 48 hours',
+    ]));
   });
   it('checks trigger settings', () => {
     expect(checkRules(DEFAULT_RULES).errors).toEqual([]);

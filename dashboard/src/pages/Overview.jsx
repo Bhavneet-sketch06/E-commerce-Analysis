@@ -5,6 +5,7 @@ import { inr, inrShort, pct, OFFER_LABEL, QUAD } from '../format.js';
 import { AnimatedNumber, Empty, Gauge, Info, Panel } from '../components/ui.jsx';
 import QuadrantScatter from '../components/QuadrantScatter.jsx';
 import LiveFeed from '../components/LiveFeed.jsx';
+import Autopilot from '../components/Autopilot.jsx';
 
 const ACCENT = {
   ok: 'border-ok/40 bg-ok/10 text-ok', info: 'border-info/40 bg-info/10 text-info',
@@ -125,10 +126,12 @@ export default function Overview({ onSelect, go }) {
         </div>
       </Panel>
 
-      <Panel className="lg:col-span-4 lg:row-span-2 lg:max-h-[860px]" title="Live activity" icon={Radio} bodyClass="p-3 overflow-hidden flex flex-col"
+      <Panel className="lg:col-span-4 lg:row-span-3 lg:max-h-[1180px]" title="Live activity" icon={Radio} bodyClass="p-3 overflow-hidden flex flex-col"
         info="Every decision and customer action, as it happens. Click a row to open that customer.">
         <LiveFeed onSelect={onSelect} />
       </Panel>
+
+      <div className="lg:col-span-8"><Autopilot go={go} /></div>
 
       <div className="grid gap-4 md:grid-cols-2 lg:col-span-8">
         <Panel title="Guardrail" icon={ShieldCheck} info="Every AI proposal is checked against the rules before anything is sent. Rejected proposals get one chance to be fixed; otherwise the rule engine takes over."

@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Wand2, CalendarRange, BellRing, Users, Tags, Gift, ShieldCheck, PartyPopper, History, Loader2, RotateCcw, Save, Undo2, AlertTriangle, XCircle, Plus, Trash2, ChevronDown } from 'lucide-react';
+import { Wand2, CalendarRange, BellRing, Zap, Users, Tags, Gift, ShieldCheck, PartyPopper, History, Loader2, RotateCcw, Save, Undo2, AlertTriangle, XCircle, Plus, Trash2, ChevronDown } from 'lucide-react';
 import { api, useApi } from '../api.jsx';
-import { ago, inr, OFFER_LABEL, QUAD } from '../format.js';
+import { ago, inr, OFFER_LABEL, QUAD, TRIGGER } from '../format.js';
 import { Button, Panel, Toggle } from '../components/ui.jsx';
 import { Chip, DateField, Num, setIn, TagInput, TextField } from '../components/fields.jsx';
 
@@ -195,9 +195,31 @@ export default function Rules({ meta }) {
           <Sentence>
             Send each person at most <Num value={r.contact.maxOffersPerWeek} onChange={set('contact.maxOffersPerWeek')} min={0} max={14} label="Offers per week" /> offers a week, at least <Num suffix="h" value={r.contact.cooldownHours} onChange={set('contact.cooldownHours')} label="Cooldown" /> apart.
             {' '}Stay quiet from <Num suffix=":00" value={r.contact.quietHoursStart} onChange={set('contact.quietHoursStart')} min={0} max={23} width="w-10" label="Quiet start" /> to <Num suffix=":00" value={r.contact.quietHoursEnd} onChange={set('contact.quietHoursEnd')} min={0} max={23} width="w-10" label="Quiet end" /> (IST).
-            {' '}Give anyone who ignores <Num value={r.contact.pauseAfterIgnored} onChange={set('contact.pauseAfterIgnored')} min={1} label="Pause after" /> offers in a row a break.
+            {' '}Give anyone who ignores <Num value={r.contact.pauseAfterIgnored} onChange={set('contact.pauseAfterIgnored')} min={1} label="Pause after" /> offers in a row a break (offers that expire unanswered count as ignored).
+            {' '}After someone buys, send them nothing for <Num suffix="h" value={r.contact.noOffersAfterPurchaseHours} onChange={set('contact.noOffersAfterPurchaseHours')} min={0} label="No offers after purchase" />: they'd buy again anyway.
           </Sentence>
           <Msgs prefix="contact" />
+        </Panel>
+
+        <Panel title="When to reach out (automatic)" icon={Zap} info="The autopilot checks every customer on a schedule and acts at the right moment. Each moment still goes through targeting, contact limits and the guardrail, so a trigger never forces an offer."
+          action={<span className="flex items-center gap-2 text-xs text-muted">Autopilot <Toggle checked={r.triggers.enabled} onChange={set('triggers.enabled')} label="Autopilot" /></span>}>
+          <div className={`space-y-2 ${r.triggers.enabled ? '' : 'pointer-events-none opacity-50'}`}>
+            <Sentence>Check every customer every <Num suffix="min" value={r.triggers.scanEveryMinutes} onChange={set('triggers.scanEveryMinutes')} min={1} width="w-12" label="Scan every" />.</Sentence>
+            {[
+              ['cartAbandoned', 'cart_abandoned', <>When a cart sits untouched for <Num suffix="min" value={r.triggers.cartAbandoned.afterMinutes} onChange={set('triggers.cartAbandoned.afterMinutes')} min={1} width="w-12" label="Cart after" />, remind them (up to <Num suffix="h" value={r.triggers.cartAbandoned.maxHours} onChange={set('triggers.cartAbandoned.maxHours')} min={1} width="w-12" label="Cart max hours" /> later, once per cart).</>],
+              ['browseAbandoned', 'browse_abandoned', <>When someone views a category <Num suffix="×" value={r.triggers.browseAbandoned.minViews} onChange={set('triggers.browseAbandoned.minViews')} min={2} width="w-10" label="Min views" /> within <Num suffix="days" value={r.triggers.browseAbandoned.withinDays} onChange={set('triggers.browseAbandoned.withinDays')} min={1} max={30} width="w-10" label="Within days" /> without buying, nudge them <Num suffix="min" value={r.triggers.browseAbandoned.afterMinutes} onChange={set('triggers.browseAbandoned.afterMinutes')} min={0} width="w-12" label="Browse after" /> after their last look.</>],
+              ['winBack', 'win_back', <>When a customer is <Num suffix="×" step={0.1} value={r.triggers.winBack.overdueRatio} onChange={set('triggers.winBack.overdueRatio')} min={1} width="w-12" label="Overdue ratio" /> overdue compared with their usual gap between orders (and at least <Num suffix="days" value={r.triggers.winBack.minDaysSinceOrder} onChange={set('triggers.winBack.minDaysSinceOrder')} min={1} width="w-12" label="Min days" /> since the last one), try to win them back. At most once every <Num suffix="days" value={r.triggers.winBack.repeatAfterDays} onChange={set('triggers.winBack.repeatAfterDays')} min={1} width="w-12" label="Win-back repeat" />.</>],
+              ['pointsExpiring', 'points_expiring', <>When at least <Num value={r.triggers.pointsExpiring.minPoints} onChange={set('triggers.pointsExpiring.minPoints')} min={1} label="Points min" /> reward points are about to expire, remind them. At most once every <Num suffix="days" value={r.triggers.pointsExpiring.repeatAfterDays} onChange={set('triggers.pointsExpiring.repeatAfterDays')} min={1} width="w-10" label="Points repeat" />.</>],
+            ].map(([key, trig, text]) => (
+              <div key={key} className={`flex items-start gap-3 rounded-xl border border-line p-3 ${r.triggers[key].enabled ? 'bg-panel2/50' : 'bg-panel2/10 opacity-60'}`}>
+                <span className="mt-1 text-lg">{TRIGGER[trig].emoji}</span>
+                <div className="min-w-0 flex-1"><p className="text-xs font-semibold text-muted">{TRIGGER[trig].label}</p><Sentence>{text}</Sentence></div>
+                <span className="mt-1"><Toggle checked={r.triggers[key].enabled} onChange={set(`triggers.${key}.enabled`)} label={`${TRIGGER[trig].label} trigger`} /></span>
+              </div>
+            ))}
+            <Sentence>Act on up to <Num value={r.triggers.syntheticPerScan} onChange={set('triggers.syntheticPerScan')} min={0} max={50} width="w-10" label="Synthetic per scan" /> synthetic customers per scan (rule engine only, so it costs nothing). Telegram testers are always checked.</Sentence>
+          </div>
+          <Msgs prefix="triggers" />
         </Panel>
 
         <Panel title="Who can get what" icon={Users} info="The heart of the strategy. Tap an offer to allow or block it for that group. The discount cap applies to every % or ₹ offer for the group.">

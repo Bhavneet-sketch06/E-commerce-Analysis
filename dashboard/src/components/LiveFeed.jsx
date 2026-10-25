@@ -1,7 +1,7 @@
 import { AnimatePresence, motion } from 'framer-motion';
 import { Radio } from 'lucide-react';
 import { useLive } from '../api.jsx';
-import { offerText, QUAD, SOURCE, VIOLATION } from '../format.js';
+import { offerText, QUAD, SOURCE, TRIGGER, VIOLATION } from '../format.js';
 import { Empty } from './ui.jsx';
 
 const EVENT = {
@@ -12,6 +12,7 @@ const EVENT = {
   dismissed: ['🙅', 'passed on an offer', 'text-muted'],
   why: ['🤔', 'asked "why this offer?"', 'text-ai'],
   opted_out: ['🔕', 'opted out of offers', 'text-bad'],
+  expired: ['⌛', 'let an offer expire (counted as ignored)', 'text-muted'],
   opted_in: ['🔔', 'turned offers back on', 'text-info'],
   add_to_cart: ['➕', 'added to cart', 'text-muted'],
   browse: ['👀', 'is browsing', 'text-muted'],
@@ -32,6 +33,7 @@ function Row({ ev, onSelect }) {
     else { icon = '–'; tone = 'text-muted border-line-strong bg-panel2'; title = <><b>{d.name}</b> skipped</>; }
     sub = (
       <span className="flex flex-wrap items-center gap-1.5">
+        {TRIGGER[d.trigger] && !['campaign', 'dashboard', 'customer_request'].includes(d.trigger) && <span className="text-warn">⚡ {TRIGGER[d.trigger].emoji} {TRIGGER[d.trigger].label} ·</span>}
         <span className={QUAD[d.quadrant]?.tw}>{QUAD[d.quadrant]?.label}</span>
         {d.source && <span className="text-faint">· {SOURCE[d.source]?.label}</span>}
         {d.status === 'blocked' && d.blockers?.[0] && <span className="text-faint">· {d.blockers[0].message}</span>}
@@ -53,6 +55,12 @@ function Row({ ev, onSelect }) {
   } else if (ev.kind === 'campaign') {
     icon = '🚀'; tone = 'border-ok/40 bg-ok/10';
     title = ev.phase === 'start' ? <>Campaign launched <span className="text-muted">({ev.useAI ? 'AI on' : 'rules only'})</span></> : <>Campaign done: <b>{ev.summary.sent}</b> sent</>;
+  } else if (ev.kind === 'scan') {
+    const n = Object.values(ev.result.fired || {}).reduce((s, x) => s + x, 0);
+    if (!n && !ev.result.expiredIgnored) return null;
+    icon = '⚡'; tone = 'text-warn border-warn/40 bg-warn/10';
+    title = <>Autopilot scan: <b>{n}</b> moment{n === 1 ? '' : 's'} acted on</>;
+    sub = <span className="text-faint">{Object.entries(ev.result.fired || {}).map(([k, v]) => `${TRIGGER[k]?.emoji || ''} ${v}`).join('  ')}{ev.result.expiredIgnored ? ` · ${ev.result.expiredIgnored} expired offers marked ignored` : ''}</span>;
   } else if (ev.kind === 'reset') {
     icon = '↺'; tone = 'border-line-strong bg-panel2'; title = 'Activity reset';
   } else return null;

@@ -51,6 +51,14 @@ export const STATUS = {
   skipped: { label: 'Skipped', tw: 'text-muted border-line-strong bg-panel2' },
 };
 
+export const TRIGGER = {
+  cart_abandoned: { label: 'Abandoned cart', emoji: '🛒', hint: 'Items left in the cart and not bought' },
+  browse_abandoned: { label: "Browsed, didn't buy", emoji: '👀', hint: 'Kept viewing a category without buying' },
+  win_back: { label: 'About to leave', emoji: '💔', hint: 'Overdue compared with their usual buying rhythm' },
+  points_expiring: { label: 'Points expiring', emoji: '⏳', hint: 'Reward points about to run out' },
+  campaign: { label: 'Campaign', emoji: '🚀' }, customer_request: { label: 'Asked for an offer', emoji: '🙋' }, dashboard: { label: 'Sent from dashboard', emoji: '🖱️' },
+};
+
 export const VIOLATION = {
   discount_out_of_range: 'Discount over the limit', amount_out_of_range: '₹ off over the limit', points_out_of_range: 'Points over the limit',
   message_mismatch: 'Message promised more', offer_not_allowed: 'Offer not allowed for this customer', category_not_allowed: 'Category not allowed',
