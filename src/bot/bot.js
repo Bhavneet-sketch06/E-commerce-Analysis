@@ -7,6 +7,7 @@ import * as db from '../db.js';
 import { CATEGORIES, CATEGORY_NAMES, POINT_VALUE_INR } from '../data/catalog.js';
 import { generateForTelegramUser, hashString } from '../data/generate.js';
 import { analyse, decide, runCampaign } from '../engine.js';
+import { runTriggersFor } from '../scheduler.js';
 import { QUADRANTS } from '../uplift.js';
 import { OFFER_TYPES } from '../rules/defaultRules.js';
 
@@ -21,6 +22,11 @@ export function productPrice(category, product) {
   const [lo, hi] = CATEGORIES[category].price;
   const x = (hashString(product) % 1000) / 1000;
   return Math.round(Math.exp(Math.log(lo) + Math.pow(x, 1.4) * (Math.log(hi) - Math.log(lo))) / 10) * 10 - 1;
+}
+
+// Every category or product a tester looks at becomes browsing history the engine learns from.
+function logView(c, category, product = null) {
+  c.browseLog = [...(c.browseLog || []), { at: new Date().toISOString(), category, product }].slice(-60);
 }
 
 const isAdmin = (ctx) => config.adminIds.includes(String(ctx.from?.id));
@@ -95,6 +101,7 @@ function friendlyBlock(d) {
     frequency_cap: "You've already had your offers for this week. We don't want to spam you! 🙂",
     cooldown: 'We just sent you something. Give it a little time ⏳',
     quiet_hours: "It's quiet hours (10pm-8am). We'll keep it for the morning 🌙",
+    recent_purchase: 'You just placed an order, so no offers for a little while. Enjoy your purchase! 📦',
     opted_out: "You've opted out of offers. Send /resume to turn them back on.",
     fatigue: "You've passed on a few offers, so we're giving you a break.",
     quadrant_blocked: "Nothing special for you right now. We'll ping you when there's something worth it.",
@@ -201,6 +208,7 @@ export function createBot(token) {
     c.visits30d += 1;
     c.lastVisitDate = new Date().toISOString();
     c.browsedCategories = [cat, ...(c.browsedCategories || []).filter((x) => x !== cat)].slice(0, 3);
+    logView(c, cat);
     db.upsertCustomer(c);
     db.addEvent({ type: 'browse', customerId: c.id, category: cat });
     const kb = new InlineKeyboard();
@@ -223,6 +231,7 @@ export function createBot(token) {
     c.cart.items.push(item);
     c.cart.valueInr = c.cart.items.reduce((s, i) => s + i.priceInr, 0);
     c.cart.updatedAt = new Date().toISOString();
+    logView(c, cat, product);
     db.upsertCustomer(c);
     db.addEvent({ type: 'add_to_cart', customerId: c.id, product, priceInr: item.priceInr });
     return ctx.answerCallbackQuery({ text: `Added ${product} (${inr(item.priceInr)}) 🛒` });
@@ -234,7 +243,7 @@ export function createBot(token) {
     const lines = c.cart.items.map((i) => `• ${i.product}: ${inr(i.priceInr)}`);
     const kb = new InlineKeyboard().text('✅ Checkout', 'cart:checkout').text('🚶 Leave cart', 'cart:leave').row().text('🗑️ Empty cart', 'cart:empty');
     return ctx.reply(
-      `🛒 <b>Your cart</b>\n\n${lines.join('\n')}\n\nTotal: <b>${inr(c.cart.valueInr)}</b>${claimed ? `\n🎟️ Coupon <code>${claimed.code}</code> will be applied if it fits` : ''}\n\n<i>Tip: tap "Leave cart" to see what the engine does when you walk away.</i>`,
+      `🛒 <b>Your cart</b>\n\n${lines.join('\n')}\n\nTotal: <b>${inr(c.cart.valueInr)}</b>${claimed ? `\n🎟️ Coupon <code>${claimed.code}</code> will be applied if it fits` : ''}\n\n<i>If you just walk away, the engine notices on its own after a while. Tap "Leave cart" to skip the wait.</i>`,
       { parse_mode: 'HTML', reply_markup: kb },
     );
   }
@@ -255,16 +264,19 @@ export function createBot(token) {
       return ctx.reply('🗑️ Cart emptied.', { reply_markup: mainMenu() });
     }
     if (action === 'leave') {
-      // Demo: pretend an hour has passed so the cart counts as abandoned, then let the engine react.
-      c.cart.updatedAt = new Date(Date.now() - 3_600_000).toISOString();
+      // Demo shortcut: fast-forward the cart past the "abandoned after" rule, then let the trigger engine react.
+      const waitMin = db.getRules().triggers?.cartAbandoned?.afterMinutes ?? 60;
+      c.cart.updatedAt = new Date(Date.now() - (waitMin + 1) * 60_000).toISOString();
       db.upsertCustomer(c);
       db.addEvent({ type: 'cart_abandoned', customerId: c.id, valueInr: c.cart.valueInr });
-      await ctx.reply(`🚶 You walked away from ${inr(c.cart.valueInr)} in your cart...\n\n<i>(Demo: we fast-forward 1 hour. The engine will decide in ~${Math.round(CART_ABANDON_DELAY_MS / 1000)}s whether you're worth a nudge, within the rules.)</i>`, { parse_mode: 'HTML' });
+      await ctx.reply(`🚶 You walked away from ${inr(c.cart.valueInr)} in your cart...\n\n<i>(Demo: we fast-forward ${waitMin} min, the time the rules wait before calling a cart abandoned. The engine will decide in ~${Math.round(CART_ABANDON_DELAY_MS / 1000)}s whether you're worth a nudge.)</i>`, { parse_mode: 'HTML' });
       setTimeout(async () => {
         const fresh = db.getCustomer(c.id);
         if (!fresh?.cart?.items?.length) return;
-        const d = await decide(c.id, { trigger: 'cart_abandoned' });
-        if (d.status !== 'sent') {
+        const d = await runTriggersFor(c.id);
+        if (!d) {
+          await bot.api.sendMessage(ctx.from.id, '🤖 Nothing to send right now: this cart was already handled, or the cart trigger is off, or it is quiet hours.').catch(() => {});
+        } else if (d.status !== 'sent') {
           await bot.api.sendMessage(ctx.from.id, `🤖 The engine looked at your cart and decided <b>not</b> to send an offer.\n\n${friendlyBlock(d.blockers?.length ? d : { blockers: [{ code: 'quadrant_blocked', message: d.reasoning || 'Skipped' }] })}`, { parse_mode: 'HTML' }).catch(() => {});
         }
       }, CART_ABANDON_DELAY_MS);
@@ -354,6 +366,8 @@ export function createBot(token) {
     const coupon = d.coupon && db.getCoupon(d.coupon);
     if (coupon && Date.parse(coupon.expiresAt) < Date.now()) return ctx.answerCallbackQuery({ text: 'This offer has expired ⌛' });
     if (coupon && coupon.status === 'issued') { coupon.status = 'claimed'; coupon.claimedAt = new Date().toISOString(); }
+    const claimer = db.getCustomer(d.customerId);
+    if (claimer?.offerHistory) { claimer.offerHistory.ignoredStreak = 0; db.upsertCustomer(claimer); }
     db.updateDecision(id, { response: 'claimed' });
     db.addEvent({ type: 'claimed', decisionId: id, customerId: d.customerId });
     await ctx.answerCallbackQuery({ text: coupon ? 'Coupon saved! It applies at checkout 🎉' : 'Opening the bazaar 🛍️' });

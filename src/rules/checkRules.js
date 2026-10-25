@@ -21,6 +21,21 @@ export function checkRules(r) {
   if (k.maxOffersPerWeek > 4) warn('contact.maxOffersPerWeek', 'More than 4 offers a week usually feels like spam');
   if (k.maxOffersPerWeek > 0 && k.cooldownHours * k.maxOffersPerWeek > 168) warn('contact.cooldownHours', `With a ${k.cooldownHours}h gap, nobody can actually get ${k.maxOffersPerWeek} offers in a week`);
 
+  if (!(k.noOffersAfterPurchaseHours >= 0)) err('contact.noOffersAfterPurchaseHours', 'Hours after a purchase must be 0 or more');
+
+  const t = r.triggers;
+  if (t) {
+    if (!(t.scanEveryMinutes >= 1 && t.scanEveryMinutes <= 1440)) err('triggers.scanEveryMinutes', 'Scan every 1 to 1440 minutes');
+    if (t.cartAbandoned && !(t.cartAbandoned.afterMinutes >= 1)) err('triggers.cartAbandoned.afterMinutes', 'Wait at least 1 minute before a cart reminder');
+    if (t.cartAbandoned && t.cartAbandoned.maxHours * 60 <= t.cartAbandoned.afterMinutes) err('triggers.cartAbandoned.maxHours', 'The cart window closes before it opens');
+    if (t.browseAbandoned && !(t.browseAbandoned.minViews >= 2)) err('triggers.browseAbandoned.minViews', 'Need at least 2 views to call it "considering"');
+    if (t.browseAbandoned && !(t.browseAbandoned.withinDays >= 1 && t.browseAbandoned.withinDays <= 30)) err('triggers.browseAbandoned.withinDays', 'Look back 1 to 30 days');
+    if (t.winBack && !(t.winBack.overdueRatio >= 1)) err('triggers.winBack.overdueRatio', 'Win-back should start when someone is at least 1× overdue');
+    if (t.winBack && t.winBack.overdueRatio < 1.3) warn('triggers.winBack.overdueRatio', 'A low overdue ratio will chase customers who were about to buy anyway');
+    if (t.cartAbandoned?.afterMinutes < 15) warn('triggers.cartAbandoned.afterMinutes', 'Under 15 minutes can feel pushy (fine for a live demo)');
+    if (k.noOffersAfterPurchaseHours === 0) warn('contact.noOffersAfterPurchaseHours', 'With no pause after purchases, people who just bought can still get discounts (lost margin)');
+  }
+
   const o = r.offers || {};
   for (const type of Object.keys(OFFER_TYPES)) if (!o[type]) err(`offers.${type}`, `Missing settings for ${OFFER_TYPES[type].label}`);
   if (o.percent_off && o.percent_off.minPct > o.percent_off.maxPct) err('offers.percent_off.minPct', 'Minimum % off is higher than the maximum');

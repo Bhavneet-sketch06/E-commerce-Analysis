@@ -10,7 +10,10 @@ const getClient = () => (client ||= new Anthropic({ apiKey: config.anthropicKey,
 const SYSTEM = `You translate a marketing manager's instruction into precise edits to the offer engine's rules (JSON).
 Rules glossary:
 - campaign: budgetInr (₹), dailyPacing, controlGroupPct, offerValidityHours, startDate/endDate (YYYY-MM-DD)
-- contact: maxOffersPerWeek, cooldownHours, quietHoursStart/End (0-23, IST), pauseAfterIgnored
+- contact: maxOffersPerWeek, cooldownHours, quietHoursStart/End (0-23, IST), pauseAfterIgnored, noOffersAfterPurchaseHours
+- triggers (automatic timing): enabled, scanEveryMinutes, syntheticPerScan,
+  cartAbandoned {enabled, afterMinutes, maxHours}, browseAbandoned {enabled, minViews, withinDays, afterMinutes},
+  winBack {enabled, overdueRatio, minDaysSinceOrder, repeatAfterDays}, pointsExpiring {enabled, minPoints, repeatAfterDays}
 - targeting.persuadableMinUplift (0-1), targeting.sureThingMinBase (0-1)
 - targeting.quadrants.<persuadable|sure_thing|lost_cause|do_not_disturb>.allowedOffers (list of offer types) and .maxDiscountPct
 - offers.<type>: enabled, minPct/maxPct, minInr/maxInr, minOrderInr, minPoints/maxPoints. Types: percent_off, flat_off, free_shipping, cart_recovery, bonus_points, points_reminder, nudge

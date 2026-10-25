@@ -17,8 +17,11 @@ For one customer you choose AT MOST ONE offer from the menu you are given, or de
 How to decide:
 - Spend margin only where it changes behaviour. "Sure thing" customers buy anyway: reward loyalty (points, a personal pick), never discount.
   "Persuadable" customers respond to incentives: pick the smallest discount likely to convert. "Lost cause" customers: cheap win-back or nothing.
-- Prefer the offer that matches what the customer actually does: an abandoned cart -> cart_recovery; points expiring -> points_reminder;
-  a strong favourite category -> that category.
+- "trigger" says why we are contacting them right now; make the offer and the message answer it:
+  cart_abandoned -> cart_recovery for their cart; browse_abandoned -> the category/product they keep viewing (browsing.considering);
+  win_back -> they are overdue versus their usual rhythm, a warm "we miss you" with the smallest incentive that could bring them back;
+  points_expiring -> remind them about the points; campaign / customer_request -> pick what fits best.
+- Otherwise prefer what the customer actually does: an abandoned cart, a category they keep browsing, their favourite category.
 - Every number must stay inside the menu's ranges. Skipping is a valid, good decision when nothing fits.
 
 How to write:
@@ -48,11 +51,12 @@ const SCHEMA = {
   },
 };
 
-export function buildBrief({ customer, f, u, el, trigger, now }) {
+export function buildBrief({ customer, f, u, el, trigger, triggerReason, now }) {
   const first = customer.name.split(' ')[0];
   return {
     today: new Date(now).toISOString().slice(0, 10),
     trigger,
+    triggerReason: triggerReason || null,
     activeFestiveWindows: el.windows,
     customer: {
       firstName: first, city: customer.city, language: customer.language, ageBand: customer.ageBand,
@@ -63,7 +67,11 @@ export function buildBrief({ customer, f, u, el, trigger, now }) {
       usesCouponsShare: f.discountShare, returnRate: f.returnRate,
       cart: f.hasAbandonedCart ? { valueInr: f.cartValue, hoursAgo: f.cartAgeHours, items: f.cartItems.map((i) => `${i.product} (₹${i.priceInr})`) } : null,
       rewardPoints: f.pointsBalance, pointsExpiringIn30Days: f.pointsExpiringSoon,
-      recentlyBrowsed: customer.browsedCategories,
+      browsing: {
+        viewsLast7Days: f.views7d, viewsLast30Days: f.views30d, mostBrowsedRecently: f.topBrowsedCategory,
+        considering: f.browseIntent ? `${f.browseIntent.product} (${f.browseIntent.category}), viewed ${f.browseIntent.views7d}x this week, not bought` : null,
+      },
+      hoursSinceLastOrder: f.hoursSinceLastOrder,
     },
     menu: el.options,
     budgetLeftTodayInr: Math.round(el.budget.today),

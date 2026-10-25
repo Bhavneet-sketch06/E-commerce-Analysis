@@ -72,6 +72,9 @@ export const ARCHETYPES = {
   serial_returner:{ share: 0.04, ordersPerYear: 4,  lapseDays: [3, 40],    coupon: 0.40, returnMult: 3.5, visits: [5, 14],  cartP: 0.35, tenure: [200, 900],  offerFatigue: [3, 7] },
 };
 
+// Chance that a customer is "considering" something: repeatedly viewing one category without buying.
+const INTENT_P = { vip: 0.15, loyal: 0.2, bargain_hunter: 0.4, regular: 0.25, lapsing: 0.3, one_timer: 0.1, window_shopper: 0.6, new: 0.35, serial_returner: 0.2 };
+
 const LANGS = [['en', 60], ['hi', 20], ['pa', 20]];
 const AGE_BANDS = [['18-24', 30], ['25-34', 35], ['35-44', 20], ['45-54', 10], ['55+', 5]];
 const PAYMENTS = [['UPI', 47], ['COD', 33], ['Card', 15], ['Wallet', 5]];
@@ -91,6 +94,34 @@ function pickCategory(r, preferred, secondary) {
   if (x < 0.55) return preferred;
   if (x < 0.8) return secondary;
   return r.pick(CATEGORY_NAMES);
+}
+
+// 30 days of product views. Uses its own random stream (per customer id) so orders and carts are unchanged.
+function generateBrowsing(id, archetypeKey, { refMs, visits30d, lastVisitDaysAgo, preferred, secondary, cart }) {
+  if (!visits30d) return [];
+  const r = rng(`browse:${id}`);
+  const log = [];
+  const view = (msAgo, category) => log.push({ at: iso(refMs - msAgo), category, product: r.pick(CATEGORIES[category].products) });
+  for (let s = 0; s < visits30d; s++) {
+    // the most recent session is the last visit; the rest spread over 30 days
+    const daysAgo = s === 0 ? lastVisitDaysAgo : r.float(lastVisitDaysAgo, 30);
+    const start = daysAgo * DAY + r.int(0, 20) * 3600_000;
+    const views = r.weighted([[1, 25], [2, 30], [3, 20], [4, 12], [6, 8], [9, 5]]);
+    for (let v = 0; v < views; v++) {
+      const x = r.next();
+      const category = x < 0.5 ? preferred : x < 0.75 ? secondary : x < 0.85 && cart ? cart.items[0].category : r.pick(CATEGORY_NAMES);
+      view(start - v * r.int(1, 4) * 60_000, category);
+    }
+  }
+  // "Considering": several recent views of one product/category, with no purchase (yet).
+  if (visits30d >= 2 && r.chance(INTENT_P[archetypeKey] ?? 0.2)) {
+    const category = r.chance(0.5) ? preferred : r.pick(CATEGORY_NAMES);
+    const product = r.pick(CATEGORIES[category].products);
+    const n = r.int(3, 7);
+    for (let k = 0; k < n; k++) log.push({ at: iso(refMs - r.float(0.1, 6) * DAY), category, product });
+  }
+  log.sort((a, b) => Date.parse(a.at) - Date.parse(b.at));
+  return log.filter((e) => Date.parse(e.at) <= refMs).slice(-40);
 }
 
 function generateOrders(r, a, { signupMs, refMs, preferred, secondary, intensity }) {
@@ -189,6 +220,10 @@ export function generateCustomer(r, id, archetypeKey, refMs, overrides = {}) {
     cart = { items, valueInr: items.reduce((s, it) => s + it.priceInr, 0), updatedAt: iso(refMs - hoursAgo * 3600_000) };
   }
 
+  const browseLog = generateBrowsing(id, archetypeKey, { refMs, visits30d, lastVisitDaysAgo, preferred, secondary, cart });
+  const recentCats = [...new Set(browseLog.slice().reverse().map((e) => e.category))];
+  const lastViewMs = browseLog.length ? Date.parse(browseLog[browseLog.length - 1].at) : null;
+
   const ignored = r.int(a.offerFatigue[0], a.offerFatigue[1]);
   const first = overrides.firstName || r.pick(FIRST_NAMES);
   return {
@@ -203,8 +238,9 @@ export function generateCustomer(r, id, archetypeKey, refMs, overrides = {}) {
     pointsBalance,
     pointsExpiringSoon: expiringSoon,
     visits30d,
-    lastVisitDate: iso(refMs - lastVisitDaysAgo * DAY),
-    browsedCategories: browsed,
+    lastVisitDate: iso(Math.max(refMs - lastVisitDaysAgo * DAY, lastViewMs ?? 0)),
+    browsedCategories: recentCats.length ? recentCats.slice(0, 3) : browsed,
+    browseLog,
     cart,
     offerHistory: { received90d: ignored + r.int(0, 3), ignoredStreak: ignored },
     optedOut: false,

@@ -27,6 +27,17 @@ export const DEFAULT_RULES = {
     quietHoursStart: 22,        // IST, no messages from 22:00...
     quietHoursEnd: 8,           // ...until 08:00
     pauseAfterIgnored: 4,       // stop contacting someone who ignored this many offers in a row
+    noOffersAfterPurchaseHours: 72, // someone who just bought would buy again anyway: don't spend on them
+  },
+  // WHEN to reach out, automatically. A background scan checks everyone every few minutes.
+  triggers: {
+    enabled: true,
+    scanEveryMinutes: 5,
+    cartAbandoned: { enabled: true, afterMinutes: 60, maxHours: 72 },
+    browseAbandoned: { enabled: true, minViews: 3, withinDays: 7, afterMinutes: 120 },
+    winBack: { enabled: true, overdueRatio: 1.5, minDaysSinceOrder: 30, repeatAfterDays: 30 },
+    pointsExpiring: { enabled: true, minPoints: 100, repeatAfterDays: 14 },
+    syntheticPerScan: 6,        // synthetic customers acted on per scan (keeps the demo feed lively, cheap)
   },
   targeting: {
     persuadableMinUplift: 0.07,

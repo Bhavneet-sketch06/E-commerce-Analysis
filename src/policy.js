@@ -20,10 +20,15 @@ export function offerGenerosity(offer) {
   }
 }
 
-// Pick the cheapest offer likely to work, given the eligible options.
-export function chooseOffer(f, u, options) {
+// Pick the cheapest offer likely to work, given the eligible options and why we're contacting them now.
+export function chooseOffer(f, u, options, trigger = null) {
   const by = (t) => options.filter((o) => o.type === t);
   const couponHabit = (f.discountShare * f.lifetimeOrders + 0.3 * 2) / (f.lifetimeOrders + 2);
+  // Category preference: what they're actively considering, then what they buy, then what they said they like.
+  const catOrder = [f.browseIntent?.category, f.topCategory, f.preferredCategory, f.topBrowsedCategory].filter(Boolean);
+  const pickCat = (opts) => catOrder.map((c) => opts.find((o) => o.category === c)).find(Boolean) || opts[0];
+
+  if (trigger === 'points_expiring' && by('points_reminder')[0]) return { action: 'send', type: 'points_reminder' };
 
   const cart = by('cart_recovery')[0];
   if (cart && f.cartAgeHours <= 24 * 7) {
@@ -36,23 +41,24 @@ export function chooseOffer(f, u, options) {
   // Discounts for persuadables, or for any group the marketing rules explicitly allow them for.
   if (u.quadrant === 'persuadable' || by('percent_off').length) {
     const pcts = by('percent_off');
-    const pick = pcts.find((o) => o.category === f.topCategory) || pcts.find((o) => o.category === f.preferredCategory) || pcts[0];
+    const pick = pickCat(pcts);
     if (pick) {
       const want = roundTo5(5 + 15 * couponHabit + 5 * (f.churnRisk > 0.5 ? 1 : 0));
       return { action: 'send', type: 'percent_off', category: pick.category, discountPct: Math.max(pick.minPct, Math.min(pick.maxPct, want)) };
     }
-    const flat = by('flat_off')[0];
+    const flat = pickCat(by('flat_off'));
     if (flat) return { action: 'send', type: 'flat_off', category: flat.category, amountInr: flat.minInr };
     if (by('free_shipping')[0]) return { action: 'send', type: 'free_shipping' };
   }
   if (u.quadrant === 'sure_thing') {
+    const nudge = by('nudge')[0];
+    if (nudge && trigger === 'browse_abandoned' && f.browseIntent && nudge.categories.includes(f.browseIntent.category)) return { action: 'send', type: 'nudge', category: f.browseIntent.category };
     const pts = by('bonus_points')[0];
     if (pts && f.rfm.M >= 4) return { action: 'send', type: 'bonus_points', points: Math.min(pts.maxPoints, Math.max(pts.minPoints, 200)) };
-    const nudge = by('nudge')[0];
     if (nudge) return { action: 'send', type: 'nudge', category: nudge.categories[0] || f.topCategory };
   }
   if (u.quadrant === 'lost_cause') {
-    const flat = by('flat_off').find((o) => o.category === f.topCategory) || by('flat_off')[0];
+    const flat = pickCat(by('flat_off'));
     if (flat && f.churnRisk < 0.9) return { action: 'send', type: 'flat_off', category: flat.category, amountInr: flat.minInr };
     const nudge = by('nudge')[0];
     if (nudge) return { action: 'send', type: 'nudge', category: nudge.categories[0] || f.topCategory };
@@ -69,12 +75,13 @@ export function templateMessage(offer, customer, f) {
   const lang = ['en', 'hi', 'pa'].includes(customer.language) ? customer.language : 'en';
   const cat = offer.category;
   const emoji = CATEGORIES[cat]?.emoji || '🎁';
-  const product = f.cartItems?.[0]?.product || (cat ? CATEGORIES[cat].products[0] : '');
+  const eyeing = cat && f.browseIntent?.category === cat ? f.browseIntent.product : null;
+  const product = f.cartItems?.[0]?.product || eyeing || (cat ? CATEGORIES[cat].products[0] : '');
   const T = {
     percent_off: {
-      en: [`${emoji} ${offer.discountPct}% off ${cat}, just for you`, `Hi ${first}! We picked ${cat} for you this week. Enjoy ${offer.discountPct}% off on orders above ${fmt(offer.minOrderInr)}.`],
-      hi: [`${emoji} आपके लिए ${cat} पर ${offer.discountPct}% छूट`, `नमस्ते ${first}! इस हफ्ते ${cat} पर ${offer.discountPct}% की छूट, ${fmt(offer.minOrderInr)} से ऊपर के ऑर्डर पर।`],
-      pa: [`${emoji} ਤੁਹਾਡੇ ਲਈ ${cat} 'ਤੇ ${offer.discountPct}% ਛੋਟ`, `ਸਤ ਸ੍ਰੀ ਅਕਾਲ ${first}! ਇਸ ਹਫ਼ਤੇ ${cat} 'ਤੇ ${offer.discountPct}% ਛੋਟ, ${fmt(offer.minOrderInr)} ਤੋਂ ਵੱਧ ਦੇ ਆਰਡਰ 'ਤੇ।`],
+      en: [`${emoji} ${offer.discountPct}% off ${cat}, just for you`, `Hi ${first}! ${eyeing ? `Still thinking about the ${eyeing}?` : `We picked ${cat} for you this week.`} Enjoy ${offer.discountPct}% off on orders above ${fmt(offer.minOrderInr)}.`],
+      hi: [`${emoji} आपके लिए ${cat} पर ${offer.discountPct}% छूट`, `नमस्ते ${first}! ${eyeing ? `${eyeing} अभी भी पसंद है? ` : ''}इस हफ्ते ${cat} पर ${offer.discountPct}% की छूट, ${fmt(offer.minOrderInr)} से ऊपर के ऑर्डर पर।`],
+      pa: [`${emoji} ਤੁਹਾਡੇ ਲਈ ${cat} 'ਤੇ ${offer.discountPct}% ਛੋਟ`, `ਸਤ ਸ੍ਰੀ ਅਕਾਲ ${first}! ${eyeing ? `${eyeing} ਹਾਲੇ ਵੀ ਪਸੰਦ ਹੈ? ` : ''}ਇਸ ਹਫ਼ਤੇ ${cat} 'ਤੇ ${offer.discountPct}% ਛੋਟ, ${fmt(offer.minOrderInr)} ਤੋਂ ਵੱਧ ਦੇ ਆਰਡਰ 'ਤੇ।`],
     },
     flat_off: {
       en: [`${emoji} ${fmt(offer.amountInr)} off your next ${cat} order`, `Hi ${first}, it's been a while! Here's ${fmt(offer.amountInr)} off ${cat} on orders above ${fmt(offer.minOrderInr)}.`],
@@ -106,9 +113,9 @@ export function templateMessage(offer, customer, f) {
       pa: [`⏳ ${offer.points} ਪੁਆਇੰਟ ਜਲਦੀ ਖ਼ਤਮ ਹੋਣਗੇ`, `ਸਤ ਸ੍ਰੀ ਅਕਾਲ ${first}, ਤੁਹਾਡੇ ${offer.points} ਪੁਆਇੰਟ ਇਸ ਮਹੀਨੇ ਖ਼ਤਮ ਹੋ ਰਹੇ ਹਨ। ਅਗਲੇ ਆਰਡਰ 'ਤੇ ਵਰਤੋ।`],
     },
     nudge: {
-      en: [`${emoji} New in ${cat}, picked for you`, `Hi ${first}! Fresh arrivals in ${cat} that match what you love, like the ${CATEGORIES[cat]?.products[1] || product}. Take a look!`],
-      hi: [`${emoji} ${cat} में आपके लिए नया`, `नमस्ते ${first}! ${cat} में नए प्रोडक्ट आए हैं, जैसे ${CATEGORIES[cat]?.products[1] || product}। एक नज़र डालें!`],
-      pa: [`${emoji} ${cat} ਵਿੱਚ ਤੁਹਾਡੇ ਲਈ ਨਵਾਂ`, `ਸਤ ਸ੍ਰੀ ਅਕਾਲ ${first}! ${cat} ਵਿੱਚ ਨਵੇਂ ਪ੍ਰੋਡਕਟ ਆਏ ਹਨ, ਜਿਵੇਂ ${CATEGORIES[cat]?.products[1] || product}। ਜ਼ਰੂਰ ਦੇਖੋ!`],
+      en: [`${emoji} New in ${cat}, picked for you`, `Hi ${first}! Fresh arrivals in ${cat} that match what you love, like the ${eyeing || CATEGORIES[cat]?.products[1] || product}. Take a look!`],
+      hi: [`${emoji} ${cat} में आपके लिए नया`, `नमस्ते ${first}! ${cat} में नए प्रोडक्ट आए हैं, जैसे ${eyeing || CATEGORIES[cat]?.products[1] || product}। एक नज़र डालें!`],
+      pa: [`${emoji} ${cat} ਵਿੱਚ ਤੁਹਾਡੇ ਲਈ ਨਵਾਂ`, `ਸਤ ਸ੍ਰੀ ਅਕਾਲ ${first}! ${cat} ਵਿੱਚ ਨਵੇਂ ਪ੍ਰੋਡਕਟ ਆਏ ਹਨ, ਜਿਵੇਂ ${eyeing || CATEGORIES[cat]?.products[1] || product}। ਜ਼ਰੂਰ ਦੇਖੋ!`],
     },
   };
   const [headline, message] = T[offer.type][lang];
@@ -116,12 +123,12 @@ export function templateMessage(offer, customer, f) {
 }
 
 // Picks an offer, then steps down to cheaper ones until it fits today's remaining budget.
-export function fallbackProposal(customer, f, u, options, budgetToday = Infinity) {
+export function fallbackProposal(customer, f, u, options, budgetToday = Infinity, trigger = null) {
   let menu = options;
   let choice;
   let offer;
   for (;;) {
-    choice = chooseOffer(f, u, menu);
+    choice = chooseOffer(f, u, menu, trigger);
     if (choice.action === 'skip') return { ...choice, reasoning: 'No suitable offer within the rules and budget.' };
     const opt = menu.find((o) => o.type === choice.type && (!o.category || o.category === choice.category)) || {};
     offer = { ...choice, minOrderInr: opt.minOrderInr, points: choice.points ?? opt.points };
@@ -135,5 +142,5 @@ export function fallbackProposal(customer, f, u, options, budgetToday = Infinity
     }
     menu = menu.filter((o) => o !== opt);
   }
-  return { ...offer, ...templateMessage(offer, customer, f), reasoning: `Rule-based pick for a ${u.quadrant.replace(/_/g, ' ')} customer.` };
+  return { ...offer, ...templateMessage(offer, customer, f), reasoning: `Rule-based pick for a ${u.quadrant.replace(/_/g, ' ')} customer${trigger && !['campaign', 'customer_request', 'dashboard'].includes(trigger) ? ` (trigger: ${trigger.replace(/_/g, ' ')})` : ''}.` };
 }

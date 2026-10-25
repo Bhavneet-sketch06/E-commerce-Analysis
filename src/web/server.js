@@ -15,6 +15,8 @@ import { aiAvailable } from '../agent/agent.js';
 import { interpretRule } from '../agent/ruleWriter.js';
 import { diffRules, applyChanges } from '../rules/diff.js';
 import { simulate } from '../simulate.js';
+import { autopilotStatus, scanNow } from '../scheduler.js';
+import { TRIGGERS } from '../triggers.js';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const DIST = path.resolve(here, '../../dashboard/dist');
@@ -172,6 +174,21 @@ export function createApp() {
       running = null;
     }
   });
+
+  app.get('/api/autopilot', (req, res) => {
+    const byTrigger = {};
+    for (const d of db.decisions()) {
+      if (!TRIGGERS[d.trigger]) continue;
+      const t = (byTrigger[d.trigger] ||= { fired: 0, sent: 0, blocked: 0, holdout: 0, skipped: 0, claimed: 0, purchased: 0 });
+      t.fired++;
+      t[d.status] = (t[d.status] || 0) + 1;
+      if (d.response === 'claimed' || d.outcome?.claimed) t.claimed++;
+      if (d.outcome?.purchased) t.purchased++;
+    }
+    const expired = db.decisions().filter((d) => d.response === 'expired').length;
+    res.json({ ...autopilotStatus(), byTrigger, expiredIgnored: expired, rules: db.getRules().triggers });
+  });
+  app.post('/api/autopilot/scan', async (req, res) => res.json(await scanNow()));
 
   app.post('/api/reset', (req, res) => {
     db.resetActivity();

@@ -43,8 +43,35 @@ export function computeFeatures(c, refDate = new Date()) {
   for (const o of orders) counts[o.category] = (counts[o.category] || 0) + 1;
   const topCategory = Object.entries(counts).sort((a, b) => b[1] - a[1])[0]?.[0] || c.preferredCategory;
 
+  // Browsing: views in the last 30 days, and categories they keep looking at without buying ("considering").
+  const views = (c.browseLog || []).filter((e) => { const t = Date.parse(e.at); return t <= refMs && refMs - t < 30 * DAY; });
+  const views7 = views.filter((e) => refMs - Date.parse(e.at) < 7 * DAY);
+  const viewsByCategory30d = {};
+  for (const e of views) viewsByCategory30d[e.category] = (viewsByCategory30d[e.category] || 0) + 1;
+  const recent14 = views.filter((e) => refMs - Date.parse(e.at) < 14 * DAY);
+  const c14 = {};
+  for (const e of recent14) c14[e.category] = (c14[e.category] || 0) + 1;
+  const topBrowsedCategory = Object.entries(c14).sort((a, b) => b[1] - a[1])[0]?.[0] || null;
+  const boughtRecently = new Set(orders.filter((o) => refMs - Date.parse(o.date) < 30 * DAY).map((o) => o.category));
+  const cartCats = new Set((c.cart?.items || []).map((i) => i.category));
+  const byCat7 = {};
+  for (const e of views7) (byCat7[e.category] ||= []).push(e);
+  const intentCandidates = Object.entries(byCat7)
+    .filter(([cat, evs]) => evs.length >= 2 && !boughtRecently.has(cat) && !cartCats.has(cat))
+    .map(([category, evs]) => {
+      const pc = {};
+      for (const e of evs) if (e.product) pc[e.product] = (pc[e.product] || 0) + 1;
+      const last = Math.max(...evs.map((e) => Date.parse(e.at)));
+      return { category, views7d: evs.length, product: Object.entries(pc).sort((a, b) => b[1] - a[1])[0]?.[0] || `${category} items`, lastViewHoursAgo: Math.round((refMs - last) / 3600_000) };
+    })
+    .sort((a, b) => b.views7d - a.views7d);
+  const browseIntent = intentCandidates.find((x) => x.views7d >= 3) || null;
+  const hoursSinceLastOrder = lastOrderMs ? Math.round((refMs - lastOrderMs) / 3600_000) : null;
+
   const cartAgeHours = c.cart ? Math.round((refMs - Date.parse(c.cart.updatedAt)) / 3600_000) : null;
-  const hasAbandonedCart = !!c.cart && cartAgeHours >= 1 && c.cart.items.length > 0;
+  // A cart counts as abandoned once it has been left untouched for 10+ minutes (the trigger rule decides when to act).
+  const cartAgeMinutes = c.cart ? Math.round((refMs - Date.parse(c.cart.updatedAt)) / 60_000) : null;
+  const hasAbandonedCart = !!c.cart && cartAgeMinutes >= 10 && c.cart.items.length > 0;
   const daysSinceVisit = Math.round((refMs - Date.parse(c.lastVisitDate)) / DAY);
 
   const R = recencyDays == null ? 1 : score(recencyDays, [(d) => d <= 14, (d) => d <= 30, (d) => d <= 60, (d) => d <= 120]);
@@ -77,7 +104,8 @@ export function computeFeatures(c, refDate = new Date()) {
     discountShare: round(discountShare), returnRate: round(returnRate),
     topCategory, preferredCategory: c.preferredCategory,
     cartValue: c.cart?.valueInr || 0, cartItems: c.cart?.items || [], cartAgeHours, hasAbandonedCart,
-    visits30d: c.visits30d, daysSinceVisit,
+    visits30d: c.visits30d, daysSinceVisit, hoursSinceLastOrder,
+    views7d: views7.length, views30d: views.length, viewsByCategory30d, topBrowsedCategory, intentCandidates, browseIntent,
     pointsBalance: c.pointsBalance, pointsExpiringSoon: c.pointsExpiringSoon,
     ignoredStreak: c.offerHistory?.ignoredStreak || 0,
     rfm: { R, F, M }, segment, churnRisk: round(churnRisk),
@@ -90,6 +118,7 @@ export function signals(f) {
   if (f.hasAbandonedCart) out.push(`left ₹${f.cartValue.toLocaleString('en-IN')} in the cart ${f.cartAgeHours < 48 ? `${f.cartAgeHours}h` : `${Math.round(f.cartAgeHours / 24)} days`} ago`);
   if (f.recencyDays != null && f.overdueRatio >= 1.5) out.push(`last order ${f.recencyDays} days ago (usually every ~${f.avgGapDays ?? 60} days)`);
   if (f.recencyDays == null) out.push('has never ordered yet');
+  if (f.browseIntent) out.push(`viewed ${f.browseIntent.category} ${f.browseIntent.views7d} times this week without buying (${f.browseIntent.product})`);
   if (f.pointsExpiringSoon > 0) out.push(`${f.pointsExpiringSoon} reward points expire within 30 days`);
   if (f.discountShare >= 0.6 && f.lifetimeOrders >= 2) out.push('mostly buys with a coupon');
   if (f.rfm.F >= 4) out.push(`orders often (${f.frequency365} orders this year)`);

@@ -2,12 +2,14 @@ import { config } from './config.js';
 import * as db from './db.js';
 import { createBot } from './bot/bot.js';
 import { startServer } from './web/server.js';
+import { startScheduler } from './scheduler.js';
 
 db.load();
 console.log(`[db] ${db.customers().length} customers loaded from ${config.dbPath}`);
 console.log(`[ai] ${config.anthropicKey ? `Claude ${config.model}` : 'no ANTHROPIC_API_KEY: using the rule-based fallback only'}`);
 
 startServer(config.port);
+if (process.env.AUTOPILOT !== 'off') startScheduler();
 
 if (!config.telegramToken) {
   console.warn('[bot] TELEGRAM_BOT_TOKEN is missing: dashboard only. Add it to .env (see .env.example).');

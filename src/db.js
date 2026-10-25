@@ -24,9 +24,13 @@ export function load(filePath = config.dbPath, { populationSize = 600 } = {}) {
   } else {
     data = EMPTY();
   }
-  if (!Object.keys(data.customers).length) {
+  // Fresh database, or synthetic customers from before browsing history existed: (re)generate them.
+  // Telegram testers and the decision log are kept.
+  const synthetic = Object.values(data.customers).filter((c) => c.telegramId == null);
+  if (!synthetic.length || synthetic.some((c) => !Array.isArray(c.browseLog))) {
     const pop = generatePopulation({ n: populationSize, seed: 2026 });
     data.meta = pop.meta;
+    for (const c of synthetic) delete data.customers[c.id];
     for (const c of pop.customers) data.customers[c.id] = c;
   }
   if (!data.ruleVersions.length) {
@@ -50,13 +54,25 @@ function save() {
 }
 
 // ---------- rules ----------
-export const getRules = () => data.ruleVersions[data.ruleVersions.length - 1].rules;
+// Rules saved by an older version lack newer settings: fill any missing keys from the defaults.
+export function withDefaults(saved, defaults = DEFAULT_RULES) {
+  const out = structuredClone(saved);
+  for (const [k, v] of Object.entries(defaults)) {
+    if (!(k in out)) out[k] = structuredClone(v);
+    else if (v && typeof v === 'object' && !Array.isArray(v) && out[k] && typeof out[k] === 'object' && !Array.isArray(out[k])) out[k] = withDefaults(out[k], v);
+  }
+  return out;
+}
+export const getRules = () => withDefaults(data.ruleVersions[data.ruleVersions.length - 1].rules);
 export const ruleVersions = () => data.ruleVersions.map(({ rules, ...v }) => v);
-export const ruleVersion = (n) => data.ruleVersions.find((v) => v.version === n);
+export const ruleVersion = (n) => {
+  const v = data.ruleVersions.find((x) => x.version === n);
+  return v && { ...v, rules: withDefaults(v.rules) };
+};
 
 export function saveRules(rules, { by = 'dashboard', note = '' } = {}) {
   const version = data.ruleVersions[data.ruleVersions.length - 1].version + 1;
-  const entry = { version, at: new Date().toISOString(), by, note, rules: structuredClone(rules) };
+  const entry = { version, at: new Date().toISOString(), by, note, rules: withDefaults(rules) };
   data.ruleVersions.push(entry);
   save();
   bus.emit('live', { kind: 'rules', version, note, by, at: entry.at });

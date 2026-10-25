@@ -38,6 +38,14 @@ describe('synthetic data behaves like real customers', () => {
     const vips = rows.filter((r) => r.c._archetype === 'vip');
     expect(vips.filter((r) => r.u.quadrant === 'sure_thing').length / vips.length).toBeGreaterThan(0.7);
   });
+  it('has realistic browsing: heavy browsers browse more, some customers are "considering" something', () => {
+    const avg = (arch) => { const g = rows.filter((r) => r.c._archetype === arch); return g.reduce((s, r) => s + r.f.views30d, 0) / g.length; };
+    expect(avg('window_shopper')).toBeGreaterThan(3 * avg('one_timer'));
+    expect(avg('vip')).toBeGreaterThan(avg('lapsing'));
+    const considering = rows.filter((r) => r.f.browseIntent).length / rows.length;
+    expect(considering).toBeGreaterThan(0.05);
+    expect(considering).toBeLessThan(0.5);
+  });
   it('builds a stable profile for a Telegram user from their answers', () => {
     const a = generateForTelegramUser({ telegramId: 42, firstName: 'Simran', city: 'Ludhiana', preferredCategory: 'Beauty', frequency: 'sales', language: 'pa' }, REF);
     const b = generateForTelegramUser({ telegramId: 42, firstName: 'Simran', city: 'Ludhiana', preferredCategory: 'Beauty', frequency: 'sales', language: 'pa' }, REF);

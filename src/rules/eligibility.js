@@ -49,6 +49,7 @@ export function contactBlockers(customer, f, u, rules, state, now) {
   if (recent.length >= contact.maxOffersPerWeek) blockers.push({ code: 'frequency_cap', message: `Already got ${recent.length} offers this week (max ${contact.maxOffersPerWeek})` });
   const last = (state.sentOffers || []).map((o) => Date.parse(o.at)).sort((a, b) => b - a)[0];
   if (last && nowMs - last < contact.cooldownHours * HOUR) blockers.push({ code: 'cooldown', message: `Last offer ${Math.round((nowMs - last) / HOUR)}h ago (cooldown ${contact.cooldownHours}h)` });
+  if (contact.noOffersAfterPurchaseHours > 0 && f.hoursSinceLastOrder != null && f.hoursSinceLastOrder < contact.noOffersAfterPurchaseHours) blockers.push({ code: 'recent_purchase', message: `Bought ${f.hoursSinceLastOrder < 48 ? `${f.hoursSinceLastOrder}h` : `${Math.round(f.hoursSinceLastOrder / 24)} days`} ago (no offers for ${contact.noOffersAfterPurchaseHours}h after a purchase)` });
   if (f.ignoredStreak >= contact.pauseAfterIgnored) blockers.push({ code: 'fatigue', message: `Ignored the last ${f.ignoredStreak} offers (pause after ${contact.pauseAfterIgnored})` });
   if (f.lifetimeOrders >= 3 && f.returnRate > exclusions.maxReturnRate) blockers.push({ code: 'high_returns', message: `Return rate ${Math.round(f.returnRate * 100)}% is above ${Math.round(exclusions.maxReturnRate * 100)}%` });
   if (f.tenureDays < exclusions.minAccountAgeDays) blockers.push({ code: 'new_account', message: `Account is ${f.tenureDays} days old (min ${exclusions.minAccountAgeDays})` });
@@ -121,7 +122,7 @@ export function eligibility(customer, f, u, rules, state, now = new Date()) {
       } else if (type === 'points_reminder') {
         if (f.pointsExpiringSoon >= (o.minPoints || 1)) options.push({ type, points: f.pointsExpiringSoon });
       } else if (type === 'nudge') {
-        options.push({ type, categories: [...new Set([f.topCategory, f.preferredCategory])].filter((c) => cats.includes(c)) });
+        options.push({ type, categories: [...new Set([f.browseIntent?.category, f.topCategory, f.preferredCategory, f.topBrowsedCategory])].filter((c) => c && cats.includes(c)) });
       }
     }
   }

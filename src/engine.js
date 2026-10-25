@@ -33,7 +33,7 @@ function summarise(p) {
   return { action, type, category, discountPct, amountInr, points, headline, message, reasoning };
 }
 
-export async function decide(customerId, { trigger = 'campaign', now = new Date(), useAI = true, ignoreQuietHours = false } = {}) {
+export async function decide(customerId, { trigger = 'campaign', triggerReason = null, now = new Date(), useAI = true, ignoreQuietHours = false } = {}) {
   const customer = db.getCustomer(customerId);
   if (!customer) throw new Error(`Unknown customer ${customerId}`);
   const rules = db.getRules();
@@ -44,14 +44,14 @@ export async function decide(customerId, { trigger = 'campaign', now = new Date(
 
   const base = {
     at: new Date(now).toISOString(), customerId: customer.id, telegramId: customer.telegramId, name: customer.name,
-    trigger, quadrant: u.quadrant, segment: f.segment, scores: u, signals: why, ruleVersion: db.ruleVersions().at(-1).version,
+    trigger, triggerReason, quadrant: u.quadrant, segment: f.segment, scores: u, signals: why, ruleVersion: db.ruleVersions().at(-1).version,
     synthetic: customer.telegramId == null,
   };
 
   // Control group: record what we WOULD have sent (rule-based, free), send nothing.
   if (holdout) {
     const el = eligibility(customer, f, u, rules, { ...state, holdout: false }, now);
-    const wouldSend = el.canContact ? fallbackProposal(customer, f, u, el.options, el.budget.today) : null;
+    const wouldSend = el.canContact ? fallbackProposal(customer, f, u, el.options, el.budget.today, trigger) : null;
     const offer = wouldSend && wouldSend.action === 'send' ? validate(wouldSend, { ...ctx, state: { ...state, holdout: false } }).offer : null;
     const rec = db.addDecision({ ...base, status: 'holdout', offer, attempts: [], blockers: [{ code: 'control_group', message: 'Control group: no offer sent (used to measure uplift)' }] });
     if (base.synthetic) simulateOutcome(rec, f, u);
@@ -67,7 +67,7 @@ export async function decide(customerId, { trigger = 'campaign', now = new Date(
   let chosen = null;
   if (useAI && aiAvailable()) {
     try {
-      const brief = buildBrief({ customer, f, u, el, trigger, now });
+      const brief = buildBrief({ customer, f, u, el, trigger, triggerReason, now });
       let res = await proposeOffer(brief);
       let check = validate(res.proposal, ctx);
       attempts.push({ source: 'ai', proposal: summarise(res.proposal), ok: check.ok, violations: check.violations, ms: res.ms, model: res.model });
@@ -83,7 +83,7 @@ export async function decide(customerId, { trigger = 'campaign', now = new Date(
     }
   }
   if (!chosen) {
-    const p = fallbackProposal(customer, f, u, el.options, el.budget.today);
+    const p = fallbackProposal(customer, f, u, el.options, el.budget.today, trigger);
     const check = validate(p, ctx);
     attempts.push({ source: 'fallback', proposal: summarise(p), ok: check.ok, violations: check.violations });
     if (check.ok) chosen = { proposal: p, check, source: 'fallback' };

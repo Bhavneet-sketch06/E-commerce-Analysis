@@ -21,11 +21,13 @@ export function scoreUplift(f, targeting = DEFAULT_TARGETING) {
   const R = f.rfm.R;
   const F = f.rfm.F;
   const freshCart = f.hasAbandonedCart && f.cartAgeHours <= 72;
+  const freshIntent = !!f.browseIntent && f.browseIntent.lastViewHoursAgo <= 72;
 
   const zBase = -1.7
     + 0.75 * (R - 3)
     + 0.6 * (F - 3)
     + (freshCart ? 0.9 : 0)
+    + (freshIntent ? 0.4 : 0)
     + 0.06 * Math.min(f.visits30d, 15)
     - 1.1 * (f.lifetimeOrders >= 2 ? f.discountShare : 0)   // coupon-waiters hold off without one
     - (f.recencyDays == null ? 0.6 : 0);
@@ -38,6 +40,7 @@ export function scoreUplift(f, targeting = DEFAULT_TARGETING) {
   let lift = 0.02
     + 0.3 * couponHabit
     + (freshCart ? 0.14 : f.hasAbandonedCart ? 0.05 : 0)
+    + (freshIntent ? 0.06 : 0)
     + 0.10 * midChurn
     + (f.pointsExpiringSoon > 0 ? 0.03 : 0);
   // Saturation: people who buy anyway can't be lifted much.
