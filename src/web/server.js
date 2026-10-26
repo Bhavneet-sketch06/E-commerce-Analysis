@@ -18,6 +18,7 @@ import { simulate } from '../simulate.js';
 import { autopilotStatus, scanNow } from '../scheduler.js';
 import { TRIGGERS } from '../triggers.js';
 import { modelCheck } from '../world.js';
+import { runtime } from '../status.js';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const DIST = path.resolve(here, '../../dashboard/dist');
@@ -52,7 +53,7 @@ export function createApp() {
   app.use(express.json({ limit: '1mb' }));
   app.use(auth);
 
-  app.get('/api/health', (req, res) => res.json({ ok: true, ai: aiAvailable(), model: config.model }));
+  app.get('/api/health', (req, res) => res.json({ ok: true, ai: aiAvailable(), model: config.model, ...runtime, autopilot: autopilotStatus().running }));
 
   app.get('/api/meta', (req, res) => res.json({
     quadrants: QUADRANTS, categories: Object.fromEntries(Object.entries(CATEGORIES).map(([k, v]) => [k, { emoji: v.emoji, marginPct: v.marginPct }])),

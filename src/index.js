@@ -5,6 +5,7 @@ import { createBot } from './bot/bot.js';
 import { startServer } from './web/server.js';
 import { startScheduler } from './scheduler.js';
 import { migrateSimulatedOutcomes } from './engine.js';
+import { runtime } from './status.js';
 
 // Cloud hosts often can't route IPv6 to Telegram (requests time out): try IPv4 first.
 dns.setDefaultResultOrder('ipv4first');
@@ -25,6 +26,7 @@ if (!config.telegramToken) {
   console.warn('[bot] TELEGRAM_BOT_TOKEN is missing: dashboard only. Add it to .env (see .env.example).');
 } else {
   const bot = createBot(config.telegramToken);
+  runtime.bot = 'connecting';
   const COMMANDS = [
     { command: 'start', description: 'Set up or show your shopper profile' },
     { command: 'menu', description: 'Browse, cart, offers' },
@@ -36,8 +38,9 @@ if (!config.telegramToken) {
     { command: 'help', description: 'How this works' },
   ];
   // Keep the dashboard alive if Telegram is unreachable or another copy of the bot is polling (409): retry.
-  const poll = () => bot.start({ drop_pending_updates: true }).catch((err) => {
+  const poll = () => bot.start({ drop_pending_updates: true, onStart: () => { runtime.bot = 'connected'; } }).catch((err) => {
     const conflict = err?.error_code === 409;
+    runtime.bot = conflict ? 'conflict' : 'reconnecting';
     console.error(`[bot] polling stopped: ${redact(err?.description || err)}. ${conflict ? 'Another copy of this bot is running somewhere (only one may poll). ' : ''}Retrying in 15s`);
     setTimeout(poll, 15_000);
   });
@@ -46,6 +49,7 @@ if (!config.telegramToken) {
       const me = await bot.api.getMe();
       await bot.api.setMyCommands(COMMANDS).catch(() => {});
       console.log(`[bot] running as @${me.username}  ->  https://t.me/${me.username}`);
+      Object.assign(runtime, { bot: 'connected', botUsername: me.username, botSince: new Date().toISOString() });
       poll();
     } catch (err) {
       const wait = Math.min(60, 5 * attempt);
