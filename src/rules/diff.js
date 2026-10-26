@@ -11,6 +11,7 @@ const LABELS = {
   'campaign.budgetInr': ['Campaign budget', inr],
   'campaign.dailyPacing': ['Daily budget pacing', (v) => (v ? 'on' : 'off')],
   'campaign.controlGroupPct': ['Control group', (v) => `${v}%`],
+  'campaign.liveReservePct': ['Daily budget kept for real customers', (v) => `${v}%`],
   'campaign.offerValidityHours': ['Offer validity', (v) => `${v} hours`],
   'contact.maxOffersPerWeek': ['Max offers per person per week', String],
   'contact.cooldownHours': ['Minimum gap between offers', (v) => `${v} hours`],

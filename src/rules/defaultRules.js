@@ -19,6 +19,7 @@ export const DEFAULT_RULES = {
     budgetInr: 100000,
     dailyPacing: true,          // spread the budget: no day may spend more than 3x the daily average
     controlGroupPct: 10,        // share of customers who never get offers, to measure real uplift
+    liveReservePct: 50,         // share of each day's budget only real (Telegram) customers may use
     offerValidityHours: 72,
   },
   contact: {

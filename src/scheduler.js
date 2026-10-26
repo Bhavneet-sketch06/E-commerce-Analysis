@@ -79,14 +79,21 @@ export async function scanNow({ now = new Date() } = {}) {
       result.checked = testers.length + synthetic.length;
       const run = async (c, useAI) => {
         const d = await runTriggersFor(c.id, { now, useAI });
-        if (!d) return;
+        if (!d) return null;
         result.fired[d.trigger] = (result.fired[d.trigger] || 0) + 1;
         result[d.status] = (result[d.status] || 0) + 1;
+        return d;
       };
       for (const c of testers) await run(c, true);
       // The most persuadable synthetic customers get Claude (budgeted per scan); the rest the rule engine.
       const aiN = aiAvailable() ? Math.max(0, rules.triggers.aiSyntheticPerScan ?? 0) : 0;
-      for (const [i, { c }] of synthetic.entries()) await run(c, i < aiN);
+      // A slot counts only when Claude actually decided (control-group or blocked customers don't use it up).
+      let aiUsed = 0;
+      for (const { c } of synthetic) {
+        const d = await run(c, aiUsed < aiN);
+        if (d?.attempts?.some((a) => a.source !== 'fallback')) aiUsed++;
+      }
+      result.aiDecisions = aiUsed;
     }
   } catch (err) {
     result.error = err.message;

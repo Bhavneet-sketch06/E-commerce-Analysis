@@ -133,9 +133,10 @@ export function fallbackProposal(customer, f, u, options, budgetToday = Infinity
     const opt = menu.find((o) => o.type === choice.type && (!o.category || o.category === choice.category)) || {};
     offer = { ...choice, minOrderInr: opt.minOrderInr, points: choice.points ?? opt.points };
     const cost = estimateCost(offer, f);
-    if (cost <= budgetToday) break;
+    const left = Math.max(0, budgetToday); // a spent budget still allows free offers
+    if (cost <= left) break;
     const minPct = opt.minPct ?? 0;
-    if (offer.discountPct > minPct && estimateCost({ ...offer, discountPct: minPct }, f) <= budgetToday) {
+    if (offer.discountPct > minPct && estimateCost({ ...offer, discountPct: minPct }, f) <= left) {
       offer.discountPct = minPct;
       choice.discountPct = minPct;
       break;

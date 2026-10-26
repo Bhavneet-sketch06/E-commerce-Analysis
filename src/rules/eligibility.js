@@ -28,7 +28,9 @@ export function budgetLeft(rules, state, now) {
   if (!dailyPacing) return { overall, today: overall };
   const days = Math.max(1, Math.round((Date.parse(endDate) - Date.parse(startDate)) / DAY) + 1);
   const dailyCap = (budgetInr / days) * 3;
-  return { overall, today: Math.min(overall, dailyCap - (state.committedTodayInr || 0)), dailyCap };
+  // Part of each day's budget is kept for real (Telegram) customers, so the autopilot can't spend it all on synthetic ones.
+  const reserve = state.liveCustomer ? 0 : Math.min(100, Math.max(0, rules.campaign.liveReservePct ?? 0)) / 100;
+  return { overall, today: Math.min(overall, dailyCap * (1 - reserve) - (state.committedTodayInr || 0)), dailyCap };
 }
 
 // Contact-level checks: can this person receive ANY message right now?

@@ -40,7 +40,7 @@ export async function decide(customerId, { trigger = 'campaign', triggerReason =
   const rules = db.getRules();
   const { f, u, signals: why } = analyse(customer, rules, now);
   const holdout = isHoldout(customer, rules);
-  const state = { ...db.campaignState(now), ...db.customerState(customer.id), holdout, ignoreQuietHours };
+  const state = { ...db.campaignState(now), ...db.customerState(customer.id), holdout, ignoreQuietHours, liveCustomer: customer.telegramId != null };
   const ctx = { customer, f, u, rules, state, now };
 
   const base = {

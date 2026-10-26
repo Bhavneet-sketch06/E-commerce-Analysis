@@ -186,6 +186,7 @@ export default function Rules({ meta }) {
             Run <TextField value={r.campaign.name} onChange={set('campaign.name')} label="Campaign name" /> from <DateField value={r.campaign.startDate} onChange={set('campaign.startDate')} label="Start" /> to <DateField value={r.campaign.endDate} onChange={set('campaign.endDate')} label="End" /> with a total budget of <Num prefix="₹" width="w-24" step={5000} value={r.campaign.budgetInr} onChange={set('campaign.budgetInr')} label="Budget" error={errFields.has('campaign.budgetInr')} />.
             {' '}Spread spending evenly across days <span className="inline-flex translate-y-1"><Toggle checked={r.campaign.dailyPacing} onChange={set('campaign.dailyPacing')} label="Daily pacing" /></span>.
             {' '}Keep <Num suffix="%" value={r.campaign.controlGroupPct} onChange={set('campaign.controlGroupPct')} min={0} max={50} label="Control group" /> of customers as a control group (no offers) to prove the offers work.
+            {' '}Keep <Num suffix="%" value={r.campaign.liveReservePct} onChange={set('campaign.liveReservePct')} min={0} max={100} label="Reserved for real customers" /> of each day's budget for real Telegram customers, so the autopilot can't spend it all.
             {' '}Offers stay valid for <Num suffix="h" value={r.campaign.offerValidityHours} onChange={set('campaign.offerValidityHours')} label="Validity" />.
           </Sentence>
           <Msgs prefix="campaign" />

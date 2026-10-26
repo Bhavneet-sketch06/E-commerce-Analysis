@@ -14,6 +14,8 @@ export function checkRules(r) {
   if (!c.startDate || !c.endDate || c.startDate > c.endDate) err('campaign.endDate', 'Campaign end date must be after the start date');
   if (!(c.controlGroupPct >= 0 && c.controlGroupPct <= 50)) err('campaign.controlGroupPct', 'Control group must be between 0% and 50%');
   if (c.controlGroupPct < 5) warn('campaign.controlGroupPct', 'A control group under 5% makes it hard to prove the offers work');
+  if (!(c.liveReservePct >= 0 && c.liveReservePct <= 100)) err('campaign.liveReservePct', 'Reserved share must be 0% to 100%');
+  if (c.liveReservePct === 0) warn('campaign.liveReservePct', "With nothing reserved, the autopilot can spend the whole day's budget before real customers arrive");
   if (!(c.offerValidityHours >= 1)) err('campaign.offerValidityHours', 'Offers must be valid for at least 1 hour');
 
   const k = r.contact || {};

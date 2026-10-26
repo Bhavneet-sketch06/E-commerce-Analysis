@@ -9,7 +9,7 @@ const getClient = () => (client ||= new Anthropic({ apiKey: config.anthropicKey,
 
 const SYSTEM = `You translate a marketing manager's instruction into precise edits to the offer engine's rules (JSON).
 Rules glossary:
-- campaign: budgetInr (₹), dailyPacing, controlGroupPct, offerValidityHours, startDate/endDate (YYYY-MM-DD)
+- campaign: budgetInr (₹), dailyPacing, controlGroupPct, liveReservePct (0-100), offerValidityHours, startDate/endDate (YYYY-MM-DD)
 - contact: maxOffersPerWeek, cooldownHours, quietHoursStart/End (0-23, IST), pauseAfterIgnored, noOffersAfterPurchaseHours
 - triggers (automatic timing): enabled, scanEveryMinutes, syntheticPerScan, aiSyntheticPerScan,
   cartAbandoned {enabled, afterMinutes, maxHours}, browseAbandoned {enabled, minViews, withinDays, afterMinutes},

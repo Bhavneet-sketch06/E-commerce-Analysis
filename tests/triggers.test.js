@@ -110,6 +110,20 @@ describe('just bought: no offers', () => {
   });
 });
 
+describe('daily budget reserved for real customers', () => {
+  it('synthetic customers stop at their share of the day; real customers can still get paid offers', () => {
+    const c = customer({ telegramId: null, browseLog: views('Fashion', 4, 'Denim Jacket') });
+    const f = computeFeatures(c, NOW);
+    const u = { ...scoreUplift(f), quadrant: 'persuadable' };
+    const days = 27;
+    const dailyCap = (rules.campaign.budgetInr / days) * 3;
+    const state = { sentOffers: [], committedInr: dailyCap * 0.55, committedTodayInr: dailyCap * 0.55 };
+    const paid = (o) => o.options.some((x) => ['percent_off', 'flat_off', 'free_shipping', 'bonus_points'].includes(x.type));
+    expect(paid(eligibility(c, f, u, rules, state, NOW))).toBe(false);
+    expect(paid(eligibility(c, f, u, rules, { ...state, liveCustomer: true }, NOW))).toBe(true);
+  });
+});
+
 describe('rules', () => {
   it('fills new settings into rules saved by an older version, keeping their values', () => {
     const old = structuredClone(DEFAULT_RULES);
@@ -136,5 +150,21 @@ describe('rules', () => {
     bad.triggers.cartAbandoned.maxHours = 0;
     bad.triggers.browseAbandoned.minViews = 1;
     expect(checkRules(bad).errors.map((e) => e.field)).toEqual(expect.arrayContaining(['triggers.cartAbandoned.maxHours', 'triggers.browseAbandoned.minViews']));
+  });
+});
+
+describe('spent budget', () => {
+  it('still sends a free personal pick instead of skipping', async () => {
+    const { fallbackProposal } = await import('../src/policy.js');
+    const c = customer({ telegramId: null, browseLog: views('Fashion', 4, 'Denim Jacket') });
+    const f = computeFeatures(c, NOW);
+    const u = { ...scoreUplift(f), quadrant: 'persuadable' };
+    const state = { sentOffers: [], committedInr: 20000, committedTodayInr: 20000 }; // far over today's cap
+    const el = eligibility(c, f, u, rules, state, NOW);
+    const p = fallbackProposal(c, f, u, el.options, el.budget.today, 'browse_abandoned');
+    expect(el.budget.today).toBeLessThan(0);
+    expect(p.action).toBe('send');
+    expect(p.type).toBe('nudge');
+    expect(p.category).toBe('Fashion');
   });
 });
