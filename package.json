@@ -16,7 +16,7 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "dashboard": "npm --prefix dashboard run dev",
-    "build": "npm --prefix dashboard install && npm --prefix dashboard run build"
+    "build": "npm --prefix dashboard ci --include=dev && npm --prefix dashboard run build"
   },
   "devDependencies": {
     "vitest": "^3.2.7"

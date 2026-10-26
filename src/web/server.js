@@ -23,7 +23,8 @@ const here = path.dirname(fileURLToPath(import.meta.url));
 const DIST = path.resolve(here, '../../dashboard/dist');
 
 function auth(req, res, next) {
-  if (!config.dashboardPassword) return next();
+  // The health check stays public so the host can tell the app is alive; everything else needs the password.
+  if (!config.dashboardPassword || req.path === '/api/health') return next();
   const [type, value] = (req.headers.authorization || '').split(' ');
   const pass = type === 'Basic' ? Buffer.from(value || '', 'base64').toString().split(':').slice(1).join(':') : '';
   if (pass === config.dashboardPassword) return next();
