@@ -2,7 +2,7 @@
 // rule-checked offers. Offers created anywhere (bot, dashboard, campaign) are delivered via the db bus.
 
 import { Bot, InlineKeyboard } from 'grammy';
-import { config } from '../config.js';
+import { config, redact } from '../config.js';
 import * as db from '../db.js';
 import { CATEGORIES, CATEGORY_NAMES, POINT_VALUE_INR } from '../data/catalog.js';
 import { generateForTelegramUser, hashString } from '../data/generate.js';
@@ -124,8 +124,8 @@ export function createBot(token) {
       db.updateDecision(d.id, { delivered: true, deliveredAt: new Date().toISOString() });
       db.addEvent({ type: 'delivered', decisionId: d.id, customerId: d.customerId });
     } catch (err) {
-      console.error('[bot] delivery failed', d.id, err.message);
-      db.updateDecision(d.id, { deliveryError: err.message });
+      console.error('[bot] delivery failed', d.id, redact(err));
+      db.updateDecision(d.id, { deliveryError: redact(err) });
     }
   }
   db.bus.on('live', (ev) => { if (ev.kind === 'decision') deliver(ev.decision); });
@@ -436,6 +436,6 @@ export function createBot(token) {
     return ctx.reply(`✅ Done. Sent ${count('sent')} · control ${count('holdout')} · blocked ${count('blocked')} · skipped ${count('skipped')}`);
   });
 
-  bot.catch((err) => console.error('[bot] error:', err.error?.message || err.error));
+  bot.catch((err) => console.error('[bot] error:', redact(err.error || err)));
   return bot;
 }
