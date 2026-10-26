@@ -6,6 +6,7 @@ import * as db from './db.js';
 import { decide, analyse } from './engine.js';
 import { detectTriggers, isUnansweredExpiry, TRIGGERS } from './triggers.js';
 import { contactBlockers, istHour } from './rules/eligibility.js';
+import { aiAvailable } from './agent/agent.js';
 
 const status = { running: false, scanning: false, lastScanAt: null, nextScanAt: null, lastResult: null, totals: {} };
 let timer = null;
@@ -83,7 +84,9 @@ export async function scanNow({ now = new Date() } = {}) {
         result[d.status] = (result[d.status] || 0) + 1;
       };
       for (const c of testers) await run(c, true);
-      for (const { c } of synthetic) await run(c, false);
+      // The most persuadable synthetic customers get Claude (budgeted per scan); the rest the rule engine.
+      const aiN = aiAvailable() ? Math.max(0, rules.triggers.aiSyntheticPerScan ?? 0) : 0;
+      for (const [i, { c }] of synthetic.entries()) await run(c, i < aiN);
     }
   } catch (err) {
     result.error = err.message;

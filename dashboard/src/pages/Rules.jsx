@@ -217,7 +217,7 @@ export default function Rules({ meta }) {
                 <span className="mt-1"><Toggle checked={r.triggers[key].enabled} onChange={set(`triggers.${key}.enabled`)} label={`${TRIGGER[trig].label} trigger`} /></span>
               </div>
             ))}
-            <Sentence>Act on up to <Num value={r.triggers.syntheticPerScan} onChange={set('triggers.syntheticPerScan')} min={0} max={50} width="w-10" label="Synthetic per scan" /> synthetic customers per scan (rule engine only, so it costs nothing). Telegram testers are always checked.</Sentence>
+            <Sentence>Act on up to <Num value={r.triggers.syntheticPerScan} onChange={set('triggers.syntheticPerScan')} min={0} max={50} width="w-10" label="Synthetic per scan" /> synthetic customers per scan, giving the <Num value={r.triggers.aiSyntheticPerScan} onChange={set('triggers.aiSyntheticPerScan')} min={0} max={10} width="w-10" label="AI per scan" /> most persuadable to Claude and the rest to the free rule engine. Telegram testers are always checked, and always get Claude.</Sentence>
           </div>
           <Msgs prefix="triggers" />
         </Panel>

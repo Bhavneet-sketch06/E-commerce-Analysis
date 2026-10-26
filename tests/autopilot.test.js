@@ -12,6 +12,7 @@ beforeAll(() => {
   r.campaign.startDate = '2020-01-01';
   r.campaign.endDate = '2099-12-31';
   r.triggers.syntheticPerScan = 15;
+  r.triggers.aiSyntheticPerScan = 0; // never call the real API from tests
   db.saveRules(r, { by: 'test' });
 });
 

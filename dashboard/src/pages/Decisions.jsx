@@ -6,7 +6,7 @@ import DecisionCard from '../components/DecisionCard.jsx';
 
 const FILTERS = [
   ['', 'All'], ['status=sent', 'Sent'], ['status=blocked', 'Blocked'], ['status=holdout', 'Control group'], ['status=skipped', 'Skipped'], ['telegram=1', 'Telegram only'],
-  ['trigger=cart_abandoned', '🛒 Cart'], ['trigger=browse_abandoned', '👀 Browsed'], ['trigger=win_back', '💔 Win-back'], ['trigger=points_expiring', '⏳ Points'],
+  ['source=ai', '✨ Claude only'], ['trigger=cart_abandoned', '🛒 Cart'], ['trigger=browse_abandoned', '👀 Browsed'], ['trigger=win_back', '💔 Win-back'], ['trigger=points_expiring', '⏳ Points'],
 ];
 
 export default function Decisions({ onSelect }) {

@@ -37,6 +37,11 @@ npm run dev        # bot + API with --watch
    every `rules.triggers.scanEveryMinutes` (env `TRIGGER_SCAN_SECONDS` overrides, `AUTOPILOT=off` disables), keeps
    triggers pending in quiet hours, and marks expired unanswered offers as ignored (feeds offer fatigue).
 
+Measurement: `world.js` is the simulated world. Synthetic customers' purchases come from their hidden
+`_archetype` (TRUE_RESPONSE), never from the engine's own scores, so offer-vs-control results genuinely test the
+targeting; `modelCheck()` compares engine groups with the truth. Only world.js / generate.js may read `_archetype`
+(enforced by tests/world.test.js).
+
 Browsing: synthetic customers carry a 30-day `browseLog`; the bot appends real views. `features.browseIntent` =
 category viewed 3+ times in 7 days, not bought, not in cart. `contact.noOffersAfterPurchaseHours` blocks offers
 right after a purchase. Older saved rules get new settings via `db.withDefaults()`.

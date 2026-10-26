@@ -38,6 +38,7 @@ export const DEFAULT_RULES = {
     winBack: { enabled: true, overdueRatio: 1.5, minDaysSinceOrder: 30, repeatAfterDays: 30 },
     pointsExpiring: { enabled: true, minPoints: 100, repeatAfterDays: 14 },
     syntheticPerScan: 6,        // synthetic customers acted on per scan (keeps the demo feed lively, cheap)
+    aiSyntheticPerScan: 1,      // ...of which this many (the most persuadable) get Claude; the rest the free rule engine
   },
   targeting: {
     persuadableMinUplift: 0.07,

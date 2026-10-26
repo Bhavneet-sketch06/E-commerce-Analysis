@@ -10,8 +10,9 @@ import { fallbackProposal, offerGenerosity } from './policy.js';
 
 export { offerGenerosity };
 import { proposeOffer, reviseOffer, buildBrief, aiAvailable } from './agent/agent.js';
-import { hashString, rng } from './data/generate.js';
-import { CATEGORIES, POINT_VALUE_INR } from './data/catalog.js';
+import { hashString } from './data/generate.js';
+import { CATEGORIES } from './data/catalog.js';
+import { trueOutcome } from './world.js';
 
 const HOUR = 3_600_000;
 
@@ -54,7 +55,7 @@ export async function decide(customerId, { trigger = 'campaign', triggerReason =
     const wouldSend = el.canContact ? fallbackProposal(customer, f, u, el.options, el.budget.today, trigger) : null;
     const offer = wouldSend && wouldSend.action === 'send' ? validate(wouldSend, { ...ctx, state: { ...state, holdout: false } }).offer : null;
     const rec = db.addDecision({ ...base, status: 'holdout', offer, attempts: [], blockers: [{ code: 'control_group', message: 'Control group: no offer sent (used to measure uplift)' }] });
-    if (base.synthetic) simulateOutcome(rec, f, u);
+    if (base.synthetic) simulateOutcome(rec, f, customer);
     return rec;
   }
 
@@ -105,39 +106,38 @@ export async function decide(customerId, { trigger = 'campaign', triggerReason =
     coupon: code, expiresAt,
   });
   if (code) db.addCoupon({ code, decisionId: rec.id, customerId: customer.id, offer, expiresAt, status: 'issued' });
-  if (base.synthetic) simulateOutcome(rec, f, u);
+  if (base.synthetic) simulateOutcome(rec, f, customer);
   return rec;
 }
 
-// Synthetic customers "respond" according to their uplift scores (seeded per decision, so reproducible).
-// Treated: P(buy) = pBase + uplift x generosity. Control: P(buy) = pBase.
-export function simulateOutcome(rec, f, u) {
-  const r = rng(`outcome:${rec.customerId}:${rec.at}`);
-  const treated = rec.status === 'sent';
-  const p = treated ? Math.min(0.98, u.pBase + Math.max(-u.pBase, u.uplift * offerGenerosity(rec.offer))) : u.pBase;
-  const purchased = r.next() < p;
-  const category = rec.offer?.category || f.topCategory;
-  let orderValueInr = 0;
-  let discountCostInr = 0;
-  if (purchased) {
-    const basket = rec.offer?.type === 'cart_recovery' ? f.cartValue : expectedBasket(f, category, rec.offer?.minOrderInr || 0);
-    orderValueInr = Math.round(basket * Math.exp(r.normal(0, 0.25)));
-    if (treated && rec.offer) {
-      const o = rec.offer;
-      if (o.discountPct) discountCostInr = Math.round(orderValueInr * o.discountPct / 100);
-      else if (o.amountInr) discountCostInr = o.amountInr;
-      else if (o.type === 'free_shipping') discountCostInr = 49;
-      else if (o.type === 'bonus_points') discountCostInr = Math.round(o.points * POINT_VALUE_INR);
+// Synthetic customers respond according to their hidden TRUE behaviour (world.js), not our model's estimates,
+// so treated-vs-control results really test the targeting.
+export function simulateOutcome(rec, f, customer = db.getCustomer(rec.customerId)) {
+  const outcome = trueOutcome(customer, f, rec);
+  db.updateDecision(rec.id, { outcome });
+  if (outcome.claimed) db.addEvent({ type: 'redeemed', decisionId: rec.id, customerId: rec.customerId, simulated: true, orderValueInr: outcome.orderValueInr });
+}
+
+// One-off: outcomes simulated by the old (model-based) method are recomputed from ground truth.
+export function migrateSimulatedOutcomes() {
+  const rules = db.getRules();
+  const redo = new Set();
+  for (const d of db.decisions()) {
+    if (!d.outcome?.simulated || d.outcome.groundTruth) continue;
+    const c = db.getCustomer(d.customerId);
+    if (!c) continue;
+    const { f } = analyse(c, rules, d.at);
+    db.updateDecision(d.id, { outcome: trueOutcome(c, f, d) });
+    redo.add(d.id);
+  }
+  if (redo.size) {
+    db.removeEvents((e) => e.simulated && redo.has(e.decisionId));
+    for (const id of redo) {
+      const d = db.getDecision(id);
+      if (d.outcome.claimed) db.addEvent({ type: 'redeemed', decisionId: id, customerId: d.customerId, simulated: true, orderValueInr: d.outcome.orderValueInr, at: d.at });
     }
   }
-  const marginPct = CATEGORIES[category]?.marginPct ?? 25;
-  const outcome = {
-    simulated: true, purchased, orderValueInr, discountCostInr,
-    grossProfitInr: Math.round(orderValueInr * marginPct / 100) - discountCostInr,
-    claimed: treated && purchased && !!rec.coupon,
-  };
-  db.updateDecision(rec.id, { outcome });
-  if (outcome.claimed) db.addEvent({ type: 'redeemed', decisionId: rec.id, customerId: rec.customerId, simulated: true, orderValueInr });
+  return redo.size;
 }
 
 // Run a campaign over many customers: highest expected incremental value first, so the budget goes where it matters.

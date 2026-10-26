@@ -77,7 +77,7 @@ export default function Overview({ onSelect, go }) {
           <AnimatedNumber value={o.counts.sent} className="text-4xl font-bold" />
         </Kpi>
         <Kpi icon={Target} label="Conversion" accent="info"
-          info="Share who bought within 14 days. 'With offer' = customers we sent an offer to. 'Control' = similar customers we deliberately held back.">
+          info="Share who bought within 14 days. 'With offer' = customers we sent an offer to. 'Control' = similar customers we deliberately held back. Synthetic customers' purchases come from their hidden true behaviour, which the engine never sees, so this is a real test of the targeting.">
           <div className="flex items-end gap-3">
             <AnimatedNumber value={r.convTreated * 100} format={(v) => `${v.toFixed(1)}%`} className="text-4xl font-bold" />
             <span className="pb-1 text-sm text-muted">vs <b className="num text-ink">{pct(r.convControl)}</b> control</span>
@@ -146,10 +146,11 @@ export default function Overview({ onSelect, go }) {
             </div>
           </div>
           <dl className="mt-4 grid grid-cols-2 gap-2 text-xs">
-            {[['AI proposals', o.guard.aiProposals, 'text-ai'], ['Caught & blocked', o.guard.aiRejected, 'text-bad'], ['Fixed by AI', o.guard.correctedByAI, 'text-warn'], ['Rule-engine fallback', o.guard.fallbackUsed, 'text-muted']].map(([k, v, c]) => (
+            {[['Sent by Claude', o.guard.sentByAI, 'text-ai'], ['AI ideas blocked', o.guard.aiRejected, 'text-bad'], ['Fixed by Claude', o.guard.correctedByAI, 'text-warn'], ['Picked by rule engine', o.guard.fallbackUsed, 'text-muted']].map(([k, v, c]) => (
               <div key={k} className="rounded-xl border border-line bg-panel2 px-3 py-2"><dt className="text-faint">{k}</dt><dd className={`num text-lg font-bold ${c}`}>{v}</dd></div>
             ))}
           </dl>
+          <p className="mt-3 text-[11px] leading-relaxed text-muted">Claude writes every offer for Telegram testers and for the most persuadable customers in each autopilot scan. The free rule engine handles the rest of the synthetic crowd. Both pass the same guardrail.</p>
         </Panel>
         <Panel title="Offer funnel" icon={Filter} info="From decision to purchase. Synthetic customers respond according to their predicted behaviour; Telegram testers respond for real.">
           <Funnel steps={[

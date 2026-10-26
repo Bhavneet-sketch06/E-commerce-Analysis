@@ -30,6 +30,8 @@ export function checkRules(r) {
     if (t.cartAbandoned && t.cartAbandoned.maxHours * 60 <= t.cartAbandoned.afterMinutes) err('triggers.cartAbandoned.maxHours', 'The cart window closes before it opens');
     if (t.browseAbandoned && !(t.browseAbandoned.minViews >= 2)) err('triggers.browseAbandoned.minViews', 'Need at least 2 views to call it "considering"');
     if (t.browseAbandoned && !(t.browseAbandoned.withinDays >= 1 && t.browseAbandoned.withinDays <= 30)) err('triggers.browseAbandoned.withinDays', 'Look back 1 to 30 days');
+    if (!(t.aiSyntheticPerScan >= 0 && t.aiSyntheticPerScan <= 10)) err('triggers.aiSyntheticPerScan', 'AI customers per scan must be 0 to 10');
+    if (t.aiSyntheticPerScan > 3) warn('triggers.aiSyntheticPerScan', 'Each AI decision costs API credits; more than 3 per scan adds up quickly');
     if (t.winBack && !(t.winBack.overdueRatio >= 1)) err('triggers.winBack.overdueRatio', 'Win-back should start when someone is at least 1× overdue');
     if (t.winBack && t.winBack.overdueRatio < 1.3) warn('triggers.winBack.overdueRatio', 'A low overdue ratio will chase customers who were about to buy anyway');
     if (t.cartAbandoned?.afterMinutes < 15) warn('triggers.cartAbandoned.afterMinutes', 'Under 15 minutes can feel pushy (fine for a live demo)');

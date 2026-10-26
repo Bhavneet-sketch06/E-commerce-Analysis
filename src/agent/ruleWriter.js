@@ -11,7 +11,7 @@ const SYSTEM = `You translate a marketing manager's instruction into precise edi
 Rules glossary:
 - campaign: budgetInr (₹), dailyPacing, controlGroupPct, offerValidityHours, startDate/endDate (YYYY-MM-DD)
 - contact: maxOffersPerWeek, cooldownHours, quietHoursStart/End (0-23, IST), pauseAfterIgnored, noOffersAfterPurchaseHours
-- triggers (automatic timing): enabled, scanEveryMinutes, syntheticPerScan,
+- triggers (automatic timing): enabled, scanEveryMinutes, syntheticPerScan, aiSyntheticPerScan,
   cartAbandoned {enabled, afterMinutes, maxHours}, browseAbandoned {enabled, minViews, withinDays, afterMinutes},
   winBack {enabled, overdueRatio, minDaysSinceOrder, repeatAfterDays}, pointsExpiring {enabled, minPoints, repeatAfterDays}
 - targeting.persuadableMinUplift (0-1), targeting.sureThingMinBase (0-1)

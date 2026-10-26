@@ -3,9 +3,12 @@ import * as db from './db.js';
 import { createBot } from './bot/bot.js';
 import { startServer } from './web/server.js';
 import { startScheduler } from './scheduler.js';
+import { migrateSimulatedOutcomes } from './engine.js';
 
 db.load();
 console.log(`[db] ${db.customers().length} customers loaded from ${config.dbPath}`);
+const migrated = migrateSimulatedOutcomes();
+if (migrated) console.log(`[db] ${migrated} simulated outcomes recomputed from ground truth`);
 console.log(`[ai] ${config.anthropicKey ? `Claude ${config.model}` : 'no ANTHROPIC_API_KEY: using the rule-based fallback only'}`);
 
 startServer(config.port);

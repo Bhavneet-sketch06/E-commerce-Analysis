@@ -138,6 +138,10 @@ export function addEvent(ev) {
   return rec;
 }
 export const events = () => data.events;
+export function removeEvents(pred) {
+  data.events = data.events.filter((e) => !pred(e));
+  save();
+}
 
 // ---------- campaign state used by eligibility ----------
 const istDay = (t) => new Date(new Date(t).getTime() + 5.5 * 3_600_000).toISOString().slice(0, 10);

@@ -17,6 +17,7 @@ import { diffRules, applyChanges } from '../rules/diff.js';
 import { simulate } from '../simulate.js';
 import { autopilotStatus, scanNow } from '../scheduler.js';
 import { TRIGGERS } from '../triggers.js';
+import { modelCheck } from '../world.js';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const DIST = path.resolve(here, '../../dashboard/dist');
@@ -77,11 +78,19 @@ export function createApp() {
     res.json({ customer: pub, features: f, scores: u, signals, decisions: db.decisions().filter((d) => d.customerId === c.id).slice(-20).reverse() });
   });
 
+  // Ground-truth check of the targeting (synthetic customers only; the engine itself never sees this).
+  app.get('/api/model-check', (req, res) => {
+    const rules = db.getRules();
+    const rows = db.customers().filter((c) => c.telegramId == null).map((c) => ({ customer: c, quadrant: analyse(c, rules).u.quadrant }));
+    res.json(modelCheck(rows));
+  });
+
   app.get('/api/decisions', (req, res) => {
     let rows = db.decisions();
     if (req.query.status) rows = rows.filter((d) => d.status === req.query.status);
     if (req.query.telegram) rows = rows.filter((d) => d.telegramId != null);
     if (req.query.trigger) rows = rows.filter((d) => d.trigger === req.query.trigger);
+    if (req.query.source === 'ai') rows = rows.filter((d) => d.source === 'ai' || d.source === 'ai_revised');
     if (req.query.guardrail) rows = rows.filter((d) => d.attempts?.some((a) => a.source !== 'fallback' && (!a.ok || a.error)));
     const limit = Math.min(500, Number(req.query.limit) || 100);
     res.json(rows.slice(-limit).reverse());

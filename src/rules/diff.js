@@ -35,6 +35,7 @@ const LABELS = {
   'triggers.pointsExpiring.minPoints': ['Points reminder when at least', (v) => `${v} points expire`],
   'triggers.pointsExpiring.repeatAfterDays': ['Repeat points reminder after', (v) => `${v} days`],
   'triggers.syntheticPerScan': ['Synthetic customers acted on per scan', String],
+  'triggers.aiSyntheticPerScan': ['…of which handled by Claude', String],
   'targeting.persuadableMinUplift': ['Persuadable threshold (offer must add at least)', (v) => `${Math.round(v * 100)} pts`],
   'targeting.sureThingMinBase': ['Sure Thing threshold (buys anyway at least)', (v) => `${Math.round(v * 100)}%`],
   'margin.minMarginAfterDiscountPct': ['Minimum margin kept after discount', (v) => `${v}%`],

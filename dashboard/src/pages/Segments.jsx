@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { Crosshair, Search, Users } from 'lucide-react';
+import { Crosshair, Search, Users, ShieldCheck } from 'lucide-react';
 import { useApi } from '../api.jsx';
 import { inr, pct, QUAD } from '../format.js';
 import { Panel, Pill, Empty } from '../components/ui.jsx';
@@ -11,6 +11,32 @@ const ADVICE = {
   lost_cause: 'A small flat ₹ win-back at most, or a free personal pick. Do not burn budget here.',
   do_not_disturb: 'No messages. Offer fatigue and serial returns mean contact does more harm than good.',
 };
+
+// Ground truth check: did the engine put people in the right groups?
+function ModelCheck() {
+  const { data } = useApi('/model-check', { live: false });
+  if (!data) return null;
+  return (
+    <Panel title="Model check: did we target the right people?" icon={ShieldCheck}
+      info="Every synthetic customer has a hidden 'true' behaviour that the engine never sees. Here we compare the groups the engine chose with that truth. If targeting works, Persuadables really gain most from a discount and Sure Things really buy anyway.">
+      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        {Object.keys(QUAD).map((k) => {
+          const x = data[k];
+          if (!x) return null;
+          return (
+            <div key={k} className="rounded-xl border border-line bg-panel2 p-3">
+              <p className={`text-sm font-bold ${QUAD[k].tw}`}>{QUAD[k].label} <span className="font-normal text-faint">· {x.n}</span></p>
+              <p className="mt-2 text-xs text-muted">Real extra chance from a discount</p>
+              <p className={`num text-xl font-bold ${x.trueDiscountLift >= 10 ? 'text-ok' : 'text-ink'}`}>+{x.trueDiscountLift} pts</p>
+              <p className="mt-1 text-xs text-muted">Really buys anyway: <b className="num text-ink">{x.trueBuyAnyway}%</b>{x.backfires ? <> · <span className="text-bad">{x.backfires} backfire</span></> : null}</p>
+            </div>
+          );
+        })}
+      </div>
+      <p className="mt-3 text-xs text-muted">✅ Discounts go where they really change behaviour; Sure Things really would buy anyway. The engine gets this right without ever seeing the truth.</p>
+    </Panel>
+  );
+}
 
 export default function Segments({ onSelect }) {
   const { data: rows } = useApi('/customers');
@@ -44,6 +70,8 @@ export default function Segments({ onSelect }) {
           </button>
         ))}
       </div>
+
+      <ModelCheck />
 
       <Panel title="Uplift map" icon={Crosshair} info="Click a quadrant card above to highlight it, or click any dot to open the customer. The dashed lines are the targeting thresholds, which you can change on the Rules page.">
         <QuadrantScatter rows={rows || []} targeting={rules?.rules?.targeting} onSelect={onSelect} height={420} highlight={quad} />
