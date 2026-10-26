@@ -21,6 +21,7 @@ export function LiveProvider({ children }) {
   const [tick, setTick] = useState(0);
   const [connected, setConnected] = useState(false);
   const timer = useRef(null);
+  const lastTick = useRef(0);
 
   useEffect(() => {
     let es;
@@ -34,26 +35,42 @@ export function LiveProvider({ children }) {
         ev.receivedAt = Date.now();
         ev.key = `${ev.receivedAt}-${Math.random()}`;
         if (ev.kind !== 'decision_update') setEvents((prev) => [ev, ...prev].slice(0, 80));
-        clearTimeout(timer.current);
-        timer.current = setTimeout(() => setTick((t) => t + 1), 500);
+        // Throttle refreshes: at most one every 1.2 s, however busy the feed is (a campaign sends many events).
+        if (!timer.current) {
+          const wait = Math.max(0, 1200 - (Date.now() - lastTick.current));
+          timer.current = setTimeout(() => { timer.current = null; lastTick.current = Date.now(); setTick((t) => t + 1); }, wait);
+        }
       };
     };
     connect();
-    return () => { es?.close(); clearTimeout(retry); };
+    return () => { es?.close(); clearTimeout(retry); clearTimeout(timer.current); };
   }, []);
 
   return <LiveContext.Provider value={{ events, tick, connected }}>{children}</LiveContext.Provider>;
 }
 
-// Fetch helper that refetches on live ticks (optionally).
+// Fetch helper that refetches on live ticks (optionally). Never runs two requests for the same panel at once:
+// a refresh asked for while one is in flight is merged into a single follow-up request.
 export function useApi(path, { live = true, deps = [] } = {}) {
   const { tick } = useLive();
   const [data, setData] = useState(null);
   const [error, setError] = useState(null);
+  const busy = useRef(false);
+  const again = useRef(false);
+  const latest = useRef(null);
   const load = useCallback(() => {
     if (!path) return;
-    api(path).then((d) => { setData(d); setError(null); }).catch(setError);
+    if (busy.current) { again.current = true; return; }
+    busy.current = true;
+    api(path)
+      .then((d) => { setData(d); setError(null); })
+      .catch(setError)
+      .finally(() => {
+        busy.current = false;
+        if (again.current) { again.current = false; latest.current?.(); }
+      });
   }, [path]);
+  latest.current = load;
   useEffect(load, [load, live ? tick : 0, ...deps]);
   return { data, error, reload: load };
 }

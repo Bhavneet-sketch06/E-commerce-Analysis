@@ -10,6 +10,7 @@ const BLOCK_LABEL = {
   fatigue: 'Paused (ignored too many offers)', quadrant_blocked: 'Group not allowed any offer', high_returns: 'Too many returns',
   budget_exhausted: 'Budget ran out', control_group: 'Control group', no_option: 'No suitable offer', campaign_inactive: 'Campaign not running',
   frequency_cap: 'Weekly cap', cooldown: 'Cooldown', opted_out: 'Opted out', new_account: 'Account too new',
+  recent_purchase: 'Just bought (no offers for a while)', quiet_hours: 'Quiet hours',
 };
 
 function Metric({ label, value, base, format, highlight, lowerBetter, info }) {
